@@ -21,12 +21,13 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Course, Subject } from '@/types/database';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, BookOpen, Edit2, Trash2, Calendar, Loader2, Eye } from 'lucide-react';
+import FileUpload from '@/components/FileUpload';
+import { Plus, BookOpen, Edit2, Trash2, Calendar, Loader2, Eye, FileText, Download } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 const Courses = () => {
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const subjectFilter = searchParams.get('subject');
@@ -43,6 +44,7 @@ const Courses = () => {
     content: '',
     subject_id: '',
     deadline: '',
+    file_url: '',
   });
 
   const isProfessor = profile?.role === 'professor' || profile?.role === 'admin';
@@ -87,6 +89,7 @@ const Courses = () => {
       content: formData.content,
       subject_id: formData.subject_id,
       deadline: formData.deadline || null,
+      file_url: formData.file_url || null,
     };
 
     if (editingCourse) {
@@ -132,7 +135,7 @@ const Courses = () => {
   };
 
   const resetForm = () => {
-    setFormData({ title: '', description: '', content: '', subject_id: '', deadline: '' });
+    setFormData({ title: '', description: '', content: '', subject_id: '', deadline: '', file_url: '' });
     setEditingCourse(null);
     setDialogOpen(false);
   };
@@ -145,6 +148,7 @@ const Courses = () => {
       content: course.content || '',
       subject_id: course.subject_id,
       deadline: course.deadline ? course.deadline.split('T')[0] : '',
+      file_url: course.file_url || '',
     });
     setDialogOpen(true);
   };
@@ -159,7 +163,7 @@ const Courses = () => {
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
+          <div className="animate-slide-up">
             <h1 className="text-2xl font-bold text-foreground">Cours</h1>
             <p className="text-muted-foreground">
               {subjectFilter
@@ -171,12 +175,12 @@ const Courses = () => {
           {isProfessor && (
             <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
               <DialogTrigger asChild>
-                <Button className="gradient-primary">
+                <Button className="gradient-primary btn-shine shadow-glow">
                   <Plus className="w-4 h-4 mr-2" />
                   Nouveau cours
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-2xl glass-strong">
                 <form onSubmit={handleSubmit}>
                   <DialogHeader>
                     <DialogTitle>{editingCourse ? 'Modifier le cours' : 'Créer un cours'}</DialogTitle>
@@ -194,6 +198,7 @@ const Courses = () => {
                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                         placeholder="Ex: Introduction aux équations"
                         required
+                        className="bg-background/50"
                       />
                     </div>
 
@@ -204,7 +209,7 @@ const Courses = () => {
                         onValueChange={(value) => setFormData({ ...formData, subject_id: value })}
                         required
                       >
-                        <SelectTrigger>
+                        <SelectTrigger className="bg-background/50">
                           <SelectValue placeholder="Sélectionnez une matière" />
                         </SelectTrigger>
                         <SelectContent>
@@ -231,6 +236,7 @@ const Courses = () => {
                         onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                         placeholder="Brève description du cours..."
                         rows={2}
+                        className="bg-background/50"
                       />
                     </div>
 
@@ -242,6 +248,18 @@ const Courses = () => {
                         onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                         placeholder="Contenu détaillé du cours..."
                         rows={6}
+                        className="bg-background/50"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Fichier du cours (PDF, documents...)</Label>
+                      <FileUpload
+                        bucket="course-files"
+                        folder={`courses/${session?.user?.id}`}
+                        onUploadComplete={(url) => setFormData({ ...formData, file_url: url })}
+                        accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx"
+                        existingFile={formData.file_url ? 'Fichier existant' : undefined}
                       />
                     </div>
 
@@ -252,6 +270,7 @@ const Courses = () => {
                         type="date"
                         value={formData.deadline}
                         onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
+                        className="bg-background/50"
                       />
                     </div>
                   </div>
@@ -289,27 +308,34 @@ const Courses = () => {
             ))}
           </div>
         ) : courses.length === 0 ? (
-          <Card className="border-0 shadow-md">
+          <Card className="border-0 shadow-md glass">
             <CardContent className="flex flex-col items-center justify-center py-12">
-              <BookOpen className="w-16 h-16 text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-medium text-foreground">Aucun cours</h3>
-              <p className="text-muted-foreground text-center mt-1">
+              <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
+                <BookOpen className="w-10 h-10 text-primary" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">Aucun cours</h3>
+              <p className="text-muted-foreground text-center mt-1 max-w-sm">
                 {isProfessor ? 'Créez votre premier cours pour commencer.' : 'Aucun cours disponible pour le moment.'}
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {courses.map((course) => (
-              <Card key={course.id} className="border-0 shadow-md hover:shadow-lg transition-shadow group">
+            {courses.map((course, index) => (
+              <Card 
+                key={course.id} 
+                className="border-0 shadow-md card-hover group animate-slide-up"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <Badge
                       variant="secondary"
-                      className="text-xs"
+                      className="text-xs font-medium"
                       style={{
-                        backgroundColor: `${course.subject?.color}20`,
+                        backgroundColor: `${course.subject?.color}15`,
                         color: course.subject?.color,
+                        borderColor: `${course.subject?.color}30`,
                       }}
                     >
                       {course.subject?.name}
@@ -327,7 +353,7 @@ const Courses = () => {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-destructive"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
                           onClick={() => handleDelete(course.id)}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -335,25 +361,35 @@ const Courses = () => {
                       </div>
                     )}
                   </div>
-                  <CardTitle className="text-lg mt-2 line-clamp-2">{course.title}</CardTitle>
+                  <CardTitle className="text-lg mt-2 line-clamp-2 group-hover:text-primary transition-colors">
+                    {course.title}
+                  </CardTitle>
                   {course.description && (
                     <CardDescription className="line-clamp-2">{course.description}</CardDescription>
                   )}
                 </CardHeader>
                 <CardContent>
-                  {course.deadline && (
-                    <div className="flex items-center gap-2 mb-4 text-sm">
-                      <Calendar className="w-4 h-4 text-muted-foreground" />
-                      <span className={isDeadlinePassed(course.deadline) ? 'text-destructive' : 'text-muted-foreground'}>
-                        {format(new Date(course.deadline), 'dd MMMM yyyy', { locale: fr })}
-                      </span>
-                      {isDeadlinePassed(course.deadline) && (
-                        <Badge variant="destructive" className="text-xs">Expiré</Badge>
-                      )}
-                    </div>
-                  )}
-                  <Link to={`/courses/${course.id}`}>
-                    <Button variant="outline" size="sm" className="w-full">
+                  <div className="space-y-3">
+                    {course.file_url && (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <FileText className="w-4 h-4 text-primary" />
+                        <span>Fichier joint</span>
+                      </div>
+                    )}
+                    {course.deadline && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Calendar className="w-4 h-4 text-muted-foreground" />
+                        <span className={isDeadlinePassed(course.deadline) ? 'text-destructive' : 'text-muted-foreground'}>
+                          {format(new Date(course.deadline), 'dd MMMM yyyy', { locale: fr })}
+                        </span>
+                        {isDeadlinePassed(course.deadline) && (
+                          <Badge variant="destructive" className="text-xs">Expiré</Badge>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <Link to={`/courses/${course.id}`} className="mt-4 block">
+                    <Button variant="outline" size="sm" className="w-full group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
                       <Eye className="w-4 h-4 mr-2" />
                       Voir le cours
                     </Button>

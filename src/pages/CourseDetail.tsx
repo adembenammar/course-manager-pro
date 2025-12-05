@@ -11,6 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { supabase } from '@/integrations/supabase/client';
 import { Course, Comment, Submission } from '@/types/database';
 import { useToast } from '@/hooks/use-toast';
+import FileUpload from '@/components/FileUpload';
 import {
   ArrowLeft,
   Calendar,
@@ -21,6 +22,8 @@ import {
   CheckCircle,
   Clock,
   Loader2,
+  Download,
+  Paperclip,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -28,7 +31,7 @@ import { fr } from 'date-fns/locale';
 const CourseDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, session } = useAuth();
   const { toast } = useToast();
 
   const [course, setCourse] = useState<Course | null>(null);
@@ -37,6 +40,7 @@ const CourseDetail = () => {
   const [loading, setLoading] = useState(true);
   const [newComment, setNewComment] = useState('');
   const [submissionContent, setSubmissionContent] = useState('');
+  const [submissionFileUrl, setSubmissionFileUrl] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isStudent = profile?.role === 'student';
@@ -77,6 +81,7 @@ const CourseDetail = () => {
       if (submissionData) {
         setSubmission(submissionData as Submission);
         setSubmissionContent(submissionData.content || '');
+        setSubmissionFileUrl(submissionData.file_url || '');
       }
     }
 
@@ -110,18 +115,24 @@ const CourseDetail = () => {
   };
 
   const handleSubmission = async () => {
-    if (!profile || !submissionContent.trim()) return;
+    if (!profile || (!submissionContent.trim() && !submissionFileUrl)) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez ajouter du contenu ou un fichier.' });
+      return;
+    }
 
     setIsSubmitting(true);
+
+    const submissionData = {
+      content: submissionContent,
+      file_url: submissionFileUrl || null,
+      status: 'submitted' as const,
+      submitted_at: new Date().toISOString(),
+    };
 
     if (submission) {
       const { error } = await supabase
         .from('submissions')
-        .update({
-          content: submissionContent,
-          status: 'submitted',
-          submitted_at: new Date().toISOString(),
-        })
+        .update(submissionData)
         .eq('id', submission.id);
 
       if (error) {
@@ -134,8 +145,7 @@ const CourseDetail = () => {
       const { error } = await supabase.from('submissions').insert({
         course_id: id,
         student_id: profile.id,
-        content: submissionContent,
-        status: 'submitted',
+        ...submissionData,
       });
 
       if (error) {
@@ -191,11 +201,12 @@ const CourseDetail = () => {
         </Button>
 
         {/* Course header */}
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md glass animate-slide-up overflow-hidden">
+          <div className="h-2" style={{ background: `linear-gradient(90deg, ${course.subject?.color || '#3B82F6'}, ${course.subject?.color || '#3B82F6'}80)` }} />
           <CardHeader>
             <div className="flex items-start gap-4">
               <div
-                className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+                className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-md"
                 style={{ backgroundColor: `${course.subject?.color}20` }}
               >
                 <FileText className="w-7 h-7" style={{ color: course.subject?.color }} />
@@ -205,7 +216,7 @@ const CourseDetail = () => {
                   variant="secondary"
                   className="mb-2"
                   style={{
-                    backgroundColor: `${course.subject?.color}20`,
+                    backgroundColor: `${course.subject?.color}15`,
                     color: course.subject?.color,
                   }}
                 >
@@ -234,20 +245,44 @@ const CourseDetail = () => {
             </div>
           </CardHeader>
 
-          {course.content && (
-            <CardContent>
-              <Separator className="mb-4" />
-              <div className="prose prose-sm max-w-none">
-                <h3 className="text-lg font-semibold mb-3">Contenu du cours</h3>
-                <div className="whitespace-pre-wrap text-muted-foreground">{course.content}</div>
+          <CardContent className="space-y-4">
+            {course.file_url && (
+              <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Paperclip className="w-5 h-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-foreground">Fichier du cours</p>
+                      <p className="text-sm text-muted-foreground">Document PDF ou autre</p>
+                    </div>
+                  </div>
+                  <Button asChild variant="outline" size="sm">
+                    <a href={course.file_url} target="_blank" rel="noopener noreferrer">
+                      <Download className="w-4 h-4 mr-2" />
+                      Télécharger
+                    </a>
+                  </Button>
+                </div>
               </div>
-            </CardContent>
-          )}
+            )}
+
+            {course.content && (
+              <>
+                <Separator />
+                <div className="prose prose-sm max-w-none">
+                  <h3 className="text-lg font-semibold mb-3">Contenu du cours</h3>
+                  <div className="whitespace-pre-wrap text-muted-foreground leading-relaxed">{course.content}</div>
+                </div>
+              </>
+            )}
+          </CardContent>
         </Card>
 
         {/* Student submission */}
         {isStudent && (
-          <Card className="border-0 shadow-md">
+          <Card className="border-0 shadow-md glass animate-slide-up" style={{ animationDelay: '100ms' }}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="w-5 h-5 text-primary" />
@@ -259,8 +294,8 @@ const CourseDetail = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {submission?.status === 'graded' && (
-                <div className="p-4 rounded-lg bg-success/10 border border-success/20">
-                  <div className="flex items-center gap-2 text-success font-medium">
+                <div className="p-4 rounded-xl bg-success/10 border border-success/20">
+                  <div className="flex items-center gap-2 text-success font-semibold">
                     <CheckCircle className="w-5 h-5" />
                     Travail noté: {submission.grade}/20
                   </div>
@@ -271,8 +306,8 @@ const CourseDetail = () => {
               )}
 
               {submission?.status === 'submitted' && !submission.grade && (
-                <div className="p-4 rounded-lg bg-warning/10 border border-warning/20">
-                  <div className="flex items-center gap-2 text-warning font-medium">
+                <div className="p-4 rounded-xl bg-warning/10 border border-warning/20">
+                  <div className="flex items-center gap-2 text-warning font-semibold">
                     <Clock className="w-5 h-5" />
                     En attente de correction
                   </div>
@@ -285,32 +320,46 @@ const CourseDetail = () => {
                 onChange={(e) => setSubmissionContent(e.target.value)}
                 rows={6}
                 disabled={submission?.status === 'graded'}
+                className="bg-background/50"
               />
 
               {submission?.status !== 'graded' && (
-                <Button
-                  onClick={handleSubmission}
-                  disabled={isSubmitting || !submissionContent.trim()}
-                  className="gradient-primary"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Envoi...
-                    </>
-                  ) : submission ? (
-                    'Mettre à jour'
-                  ) : (
-                    'Soumettre'
-                  )}
-                </Button>
+                <>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-foreground">Fichier (optionnel)</p>
+                    <FileUpload
+                      bucket="submission-files"
+                      folder={`${session?.user?.id}/${id}`}
+                      onUploadComplete={(url) => setSubmissionFileUrl(url)}
+                      accept=".pdf,.doc,.docx,.ppt,.pptx,.zip,.rar"
+                      existingFile={submissionFileUrl ? 'Fichier existant' : undefined}
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleSubmission}
+                    disabled={isSubmitting || (!submissionContent.trim() && !submissionFileUrl)}
+                    className="gradient-primary btn-shine"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Envoi...
+                      </>
+                    ) : submission ? (
+                      'Mettre à jour'
+                    ) : (
+                      'Soumettre'
+                    )}
+                  </Button>
+                </>
               )}
             </CardContent>
           </Card>
         )}
 
         {/* Comments section */}
-        <Card className="border-0 shadow-md">
+        <Card className="border-0 shadow-md glass animate-slide-up" style={{ animationDelay: '200ms' }}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="w-5 h-5 text-primary" />
@@ -320,14 +369,14 @@ const CourseDetail = () => {
           <CardContent className="space-y-4">
             {/* Comments list */}
             {comments.length === 0 ? (
-              <p className="text-center text-muted-foreground py-4">
+              <p className="text-center text-muted-foreground py-8">
                 Aucun commentaire pour le moment
               </p>
             ) : (
               <div className="space-y-4">
                 {comments.map((comment) => (
-                  <div key={comment.id} className="flex gap-3">
-                    <Avatar className="h-8 w-8">
+                  <div key={comment.id} className="flex gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+                    <Avatar className="h-9 w-9 ring-2 ring-background">
                       <AvatarImage src={comment.user?.avatar_url} />
                       <AvatarFallback className="text-xs bg-primary text-primary-foreground">
                         {comment.user?.full_name ? getInitials(comment.user.full_name) : 'U'}
@@ -353,7 +402,7 @@ const CourseDetail = () => {
 
             {/* New comment form */}
             <form onSubmit={handleCommentSubmit} className="flex gap-3">
-              <Avatar className="h-8 w-8">
+              <Avatar className="h-9 w-9 ring-2 ring-background">
                 <AvatarImage src={profile?.avatar_url} />
                 <AvatarFallback className="text-xs bg-primary text-primary-foreground">
                   {profile?.full_name ? getInitials(profile.full_name) : 'U'}
@@ -365,7 +414,7 @@ const CourseDetail = () => {
                   value={newComment}
                   onChange={(e) => setNewComment(e.target.value)}
                   rows={2}
-                  className="flex-1"
+                  className="flex-1 bg-background/50"
                 />
                 <Button
                   type="submit"
