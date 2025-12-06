@@ -12,6 +12,7 @@ import Courses from "./pages/Courses";
 import CourseDetail from "./pages/CourseDetail";
 import Submissions from "./pages/Submissions";
 import Students from "./pages/Students";
+import Analytics from "./pages/Analytics";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -85,6 +86,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Students />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/analytics"
+        element={
+          <ProtectedRoute>
+            <Analytics />
           </ProtectedRoute>
         }
       />

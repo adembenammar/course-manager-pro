@@ -22,6 +22,7 @@ import {
   Settings,
   Menu,
   X,
+  BarChart3,
 } from 'lucide-react';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
@@ -46,6 +47,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
     { name: 'Matières', href: '/subjects', icon: FolderOpen },
     { name: 'Cours', href: '/courses', icon: BookOpen },
     { name: 'Soumissions', href: '/submissions', icon: FileText },
+    { name: 'Analytiques', href: '/analytics', icon: BarChart3 },
   ];
 
   if (profile?.role === 'professor' || profile?.role === 'admin') {
