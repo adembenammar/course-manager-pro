@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { GraduationCap, Mail, Lock, User, Loader2 } from 'lucide-react';
+import { GraduationCap, Mail, Lock, User, Loader2, ArrowLeft, Sparkles, BookOpen, Users } from 'lucide-react';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -87,152 +87,244 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center gradient-hero p-4">
-      <div className="w-full max-w-md animate-scale-in">
-        <div className="flex flex-col items-center mb-8">
-          <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-glow mb-4">
-            <GraduationCap className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <h1 className="text-3xl font-bold text-foreground">EduPlatform</h1>
-          <p className="text-muted-foreground mt-2">Plateforme de gestion de cours</p>
+    <div className="min-h-screen flex overflow-hidden">
+      {/* Left Panel - Branding */}
+      <div className="hidden lg:flex lg:w-1/2 relative gradient-primary p-12 flex-col justify-between">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-white/10 rounded-full blur-3xl" />
+        </div>
+        
+        <div className="relative">
+          <Link to="/" className="inline-flex items-center gap-2 text-primary-foreground/80 hover:text-primary-foreground transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+            Retour à l'accueil
+          </Link>
         </div>
 
-        <Card className="border-0 shadow-lg">
-          <Tabs defaultValue="signin" className="w-full">
-            <CardHeader className="pb-4">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="signin">Connexion</TabsTrigger>
-                <TabsTrigger value="signup">Inscription</TabsTrigger>
-              </TabsList>
-            </CardHeader>
+        <div className="relative space-y-8">
+          <div className="w-20 h-20 rounded-3xl bg-white/20 backdrop-blur flex items-center justify-center">
+            <GraduationCap className="w-10 h-10 text-primary-foreground" />
+          </div>
+          
+          <div>
+            <h1 className="text-4xl font-bold text-primary-foreground mb-4">
+              Bienvenue sur EduPlatform
+            </h1>
+            <p className="text-xl text-primary-foreground/80 leading-relaxed max-w-md">
+              La plateforme moderne pour gérer vos cours, communiquer avec vos étudiants et suivre les progrès.
+            </p>
+          </div>
 
-            <CardContent>
-              <TabsContent value="signin" className="mt-0">
-                <form onSubmit={handleSignIn} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signin-email"
-                        type="email"
-                        placeholder="votre@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="pl-10"
-                        required
-                      />
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 text-primary-foreground/80">
+              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+                <BookOpen className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="font-medium text-primary-foreground">Gestion complète des cours</p>
+                <p className="text-sm">Créez, partagez et organisez facilement</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 text-primary-foreground/80">
+              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+                <Users className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="font-medium text-primary-foreground">Collaboration en temps réel</p>
+                <p className="text-sm">Échangez via commentaires et feedback</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 text-primary-foreground/80">
+              <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+                <Sparkles className="w-6 h-6" />
+              </div>
+              <div>
+                <p className="font-medium text-primary-foreground">Interface intuitive</p>
+                <p className="text-sm">Simple à utiliser pour tous</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative text-primary-foreground/60 text-sm">
+          © {new Date().getFullYear()} EduPlatform
+        </div>
+      </div>
+
+      {/* Right Panel - Auth Forms */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-background">
+        <div className="w-full max-w-md animate-scale-in">
+          {/* Mobile header */}
+          <div className="lg:hidden flex flex-col items-center mb-8">
+            <Link to="/" className="mb-6 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Retour
+            </Link>
+            <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-glow mb-4">
+              <GraduationCap className="w-8 h-8 text-primary-foreground" />
+            </div>
+            <h1 className="text-2xl font-bold text-foreground">EduPlatform</h1>
+          </div>
+
+          <Card className="border-0 shadow-xl bg-card">
+            <Tabs defaultValue="signin" className="w-full">
+              <CardContent className="p-6 sm:p-8">
+                <TabsList className="grid w-full grid-cols-2 mb-8 bg-muted/50 p-1 rounded-xl">
+                  <TabsTrigger value="signin" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm py-3 font-medium">
+                    Connexion
+                  </TabsTrigger>
+                  <TabsTrigger value="signup" className="rounded-lg data-[state=active]:bg-background data-[state=active]:shadow-sm py-3 font-medium">
+                    Inscription
+                  </TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="signin" className="mt-0 space-y-6">
+                  <div className="text-center mb-6">
+                    <h2 className="text-2xl font-bold text-foreground">Bon retour!</h2>
+                    <p className="text-muted-foreground mt-1">Connectez-vous à votre compte</p>
+                  </div>
+                  
+                  <form onSubmit={handleSignIn} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="signin-email" className="text-foreground font-medium">Email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          id="signin-email"
+                          type="email"
+                          placeholder="votre@email.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="signin-password">Mot de passe</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signin-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="pl-10"
-                        required
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="signin-password" className="text-foreground font-medium">Mot de passe</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          id="signin-password"
+                          type="password"
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                          required
+                        />
+                      </div>
                     </div>
+
+                    <Button type="submit" className="w-full h-12 rounded-xl gradient-primary text-base font-semibold btn-shine" disabled={isLoading}>
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Connexion...
+                        </>
+                      ) : (
+                        'Se connecter'
+                      )}
+                    </Button>
+                  </form>
+                </TabsContent>
+
+                <TabsContent value="signup" className="mt-0 space-y-6">
+                  <div className="text-center mb-6">
+                    <h2 className="text-2xl font-bold text-foreground">Créer un compte</h2>
+                    <p className="text-muted-foreground mt-1">Rejoignez EduPlatform gratuitement</p>
                   </div>
-
-                  <Button type="submit" className="w-full gradient-primary" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Connexion...
-                      </>
-                    ) : (
-                      'Se connecter'
-                    )}
-                  </Button>
-                </form>
-              </TabsContent>
-
-              <TabsContent value="signup" className="mt-0">
-                <form onSubmit={handleSignUp} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Nom complet</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-name"
-                        type="text"
-                        placeholder="Jean Dupont"
-                        value={fullName}
-                        onChange={(e) => setFullName(e.target.value)}
-                        className="pl-10"
-                        required
-                      />
+                  
+                  <form onSubmit={handleSignUp} className="space-y-5">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-name" className="text-foreground font-medium">Nom complet</Label>
+                      <div className="relative">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          id="signup-name"
+                          type="text"
+                          placeholder="Jean Dupont"
+                          value={fullName}
+                          onChange={(e) => setFullName(e.target.value)}
+                          className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-email"
-                        type="email"
-                        placeholder="votre@email.com"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="pl-10"
-                        required
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-email" className="text-foreground font-medium">Email</Label>
+                      <div className="relative">
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          id="signup-email"
+                          type="email"
+                          placeholder="votre@email.com"
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                          required
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Mot de passe</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-password"
-                        type="password"
-                        placeholder="••••••••"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="pl-10"
-                        required
-                        minLength={6}
-                      />
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-password" className="text-foreground font-medium">Mot de passe</Label>
+                      <div className="relative">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                        <Input
+                          id="signup-password"
+                          type="password"
+                          placeholder="••••••••"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-colors"
+                          required
+                          minLength={6}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Minimum 6 caractères</p>
                     </div>
-                  </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-role">Rôle</Label>
-                    <Select value={role} onValueChange={setRole}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Sélectionnez votre rôle" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="student">Étudiant</SelectItem>
-                        <SelectItem value="professor">Professeur</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-role" className="text-foreground font-medium">Je suis</Label>
+                      <Select value={role} onValueChange={setRole}>
+                        <SelectTrigger className="h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-colors">
+                          <SelectValue placeholder="Sélectionnez votre rôle" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="student">
+                            <span className="flex items-center gap-2">
+                              📚 Étudiant
+                            </span>
+                          </SelectItem>
+                          <SelectItem value="professor">
+                            <span className="flex items-center gap-2">
+                              👨‍🏫 Professeur
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
 
-                  <Button type="submit" className="w-full gradient-primary" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Inscription...
-                      </>
-                    ) : (
-                      'S\'inscrire'
-                    )}
-                  </Button>
-                </form>
-              </TabsContent>
-            </CardContent>
-          </Tabs>
-        </Card>
+                    <Button type="submit" className="w-full h-12 rounded-xl gradient-primary text-base font-semibold btn-shine" disabled={isLoading}>
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                          Inscription...
+                        </>
+                      ) : (
+                        'Créer mon compte'
+                      )}
+                    </Button>
+                  </form>
+                </TabsContent>
+              </CardContent>
+            </Tabs>
+          </Card>
+        </div>
       </div>
     </div>
   );
