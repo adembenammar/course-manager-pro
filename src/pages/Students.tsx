@@ -1,35 +1,20 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile } from '@/types/database';
-import { Users, Mail, Loader2, UserPlus, Search, X, Check } from 'lucide-react';
+import { Users, Mail, Loader2, GraduationCap, Calendar, UserCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { toast } from 'sonner';
 
 const Students = () => {
   const { profile } = useAuth();
   const [students, setStudents] = useState<Profile[]>([]);
-  const [allStudents, setAllStudents] = useState<Profile[]>([]);
-  const [myStudentIds, setMyStudentIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [addingStudent, setAddingStudent] = useState<string | null>(null);
 
   const isProfessor = profile?.role === 'professor' || profile?.role === 'admin';
 
@@ -41,14 +26,13 @@ const Students = () => {
     if (!profile) return;
 
     if (isProfessor) {
-      // Fetch professor's students
+      // Professors only see their own students
       const { data: professorStudents } = await supabase
         .from('professor_students')
         .select('student_id')
         .eq('professor_id', profile.id);
 
       const studentIds = professorStudents?.map((ps) => ps.student_id) || [];
-      setMyStudentIds(studentIds);
 
       if (studentIds.length > 0) {
         const { data } = await supabase
@@ -61,69 +45,37 @@ const Students = () => {
       } else {
         setStudents([]);
       }
-
-      // Fetch all students for adding
-      const { data: all } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'student')
-        .order('full_name');
-
-      setAllStudents((all as Profile[]) || []);
     } else {
-      // Students see all students
-      const { data } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'student')
-        .order('full_name');
+      // Students see classmates (students with same professor)
+      const { data: myProfessor } = await supabase
+        .from('professor_students')
+        .select('professor_id')
+        .eq('student_id', profile.id)
+        .maybeSingle();
 
-      setStudents((data as Profile[]) || []);
-    }
+      if (myProfessor) {
+        const { data: classmateIds } = await supabase
+          .from('professor_students')
+          .select('student_id')
+          .eq('professor_id', myProfessor.professor_id);
 
-    setLoading(false);
-  };
+        const studentIds = classmateIds?.map((c) => c.student_id) || [];
 
-  const addStudent = async (studentId: string) => {
-    if (!profile) return;
+        if (studentIds.length > 0) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .in('id', studentIds)
+            .order('full_name');
 
-    setAddingStudent(studentId);
-
-    const { error } = await supabase.from('professor_students').insert({
-      professor_id: profile.id,
-      student_id: studentId,
-    });
-
-    if (error) {
-      toast.error("Erreur lors de l'ajout de l'étudiant");
-    } else {
-      toast.success('Étudiant ajouté avec succès');
-      setMyStudentIds((prev) => [...prev, studentId]);
-      const addedStudent = allStudents.find((s) => s.id === studentId);
-      if (addedStudent) {
-        setStudents((prev) => [...prev, addedStudent].sort((a, b) => a.full_name.localeCompare(b.full_name)));
+          setStudents((data as Profile[]) || []);
+        }
+      } else {
+        setStudents([]);
       }
     }
 
-    setAddingStudent(null);
-  };
-
-  const removeStudent = async (studentId: string) => {
-    if (!profile) return;
-
-    const { error } = await supabase
-      .from('professor_students')
-      .delete()
-      .eq('professor_id', profile.id)
-      .eq('student_id', studentId);
-
-    if (error) {
-      toast.error("Erreur lors de la suppression de l'étudiant");
-    } else {
-      toast.success('Étudiant retiré avec succès');
-      setMyStudentIds((prev) => prev.filter((id) => id !== studentId));
-      setStudents((prev) => prev.filter((s) => s.id !== studentId));
-    }
+    setLoading(false);
   };
 
   const getInitials = (name: string) => {
@@ -135,159 +87,136 @@ const Students = () => {
       .slice(0, 2);
   };
 
-  const filteredAllStudents = allStudents.filter(
-    (s) =>
-      !myStudentIds.includes(s.id) &&
-      (s.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.email.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
-
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {isProfessor ? 'Mes Étudiants' : 'Étudiants'}
-            </h1>
-            <p className="text-muted-foreground">
-              {isProfessor
-                ? 'Gérez vos étudiants assignés'
-                : 'Liste des étudiants inscrits sur la plateforme'}
-            </p>
+        <div className="animate-slide-up">
+          <div className="flex items-center gap-4 mb-2">
+            <div className="w-14 h-14 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
+              <Users className="w-7 h-7 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">
+                {isProfessor ? 'Mes Étudiants' : 'Mes Camarades'}
+              </h1>
+              <p className="text-muted-foreground">
+                {isProfessor
+                  ? `${students.length} étudiant${students.length > 1 ? 's' : ''} inscrit${students.length > 1 ? 's' : ''} dans vos cours`
+                  : 'Étudiants de votre classe'}
+              </p>
+            </div>
           </div>
-
-          {isProfessor && (
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-              <DialogTrigger asChild>
-                <Button className="gradient-primary btn-shine">
-                  <UserPlus className="w-4 h-4 mr-2" />
-                  Ajouter un étudiant
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Ajouter un étudiant</DialogTitle>
-                  <DialogDescription>
-                    Recherchez et ajoutez des étudiants à votre liste
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Rechercher par nom ou email..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9"
-                    />
-                  </div>
-                  <div className="max-h-[300px] overflow-y-auto space-y-2">
-                    {filteredAllStudents.length === 0 ? (
-                      <p className="text-center text-muted-foreground py-4">
-                        Aucun étudiant trouvé
-                      </p>
-                    ) : (
-                      filteredAllStudents.map((student) => (
-                        <div
-                          key={student.id}
-                          className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
-                        >
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage src={student.avatar_url} />
-                              <AvatarFallback className="bg-primary text-primary-foreground text-sm">
-                                {getInitials(student.full_name)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div>
-                              <p className="font-medium text-sm">{student.full_name}</p>
-                              <p className="text-xs text-muted-foreground">{student.email}</p>
-                            </div>
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={() => addStudent(student.id)}
-                            disabled={addingStudent === student.id}
-                          >
-                            {addingStudent === student.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <Check className="w-4 h-4" />
-                            )}
-                          </Button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
         </div>
+
+        {/* Stats */}
+        {isProfessor && students.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-primary/10 to-primary/5">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center">
+                  <UserCheck className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">{students.length}</p>
+                  <p className="text-sm text-muted-foreground">Étudiants actifs</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-success/10 to-success/5">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-success/20 flex items-center justify-center">
+                  <GraduationCap className="w-6 h-6 text-success" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">100%</p>
+                  <p className="text-sm text-muted-foreground">Taux de participation</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card className="border-0 shadow-lg bg-gradient-to-br from-accent/10 to-accent/5">
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-accent/20 flex items-center justify-center">
+                  <Calendar className="w-6 h-6 text-accent" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {students.length > 0 
+                      ? format(new Date(students[students.length - 1].created_at), 'dd MMM', { locale: fr })
+                      : '-'
+                    }
+                  </p>
+                  <p className="text-sm text-muted-foreground">Dernière inscription</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Students grid */}
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          <div className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Chargement des étudiants...</p>
           </div>
         ) : students.length === 0 ? (
-          <Card className="border-0 shadow-md">
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Users className="w-16 h-16 text-muted-foreground/50 mb-4" />
-              <h3 className="text-lg font-medium text-foreground">Aucun étudiant</h3>
-              <p className="text-muted-foreground text-center mt-1">
+          <Card className="border-0 shadow-lg">
+            <CardContent className="flex flex-col items-center justify-center py-20">
+              <div className="w-24 h-24 rounded-3xl bg-muted/50 flex items-center justify-center mb-6">
+                <Users className="w-12 h-12 text-muted-foreground/50" />
+              </div>
+              <h3 className="text-xl font-semibold text-foreground mb-2">Aucun étudiant</h3>
+              <p className="text-muted-foreground text-center max-w-md">
                 {isProfessor
-                  ? "Vous n'avez pas encore d'étudiants assignés. Cliquez sur le bouton ci-dessus pour en ajouter."
-                  : 'Aucun étudiant inscrit pour le moment.'}
+                  ? "Aucun étudiant n'est encore inscrit à vos cours. Les étudiants peuvent vous sélectionner lors de leur inscription."
+                  : "Vous n'êtes pas encore assigné à un professeur."}
               </p>
             </CardContent>
           </Card>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {students.map((student) => (
+            {students.map((student, index) => (
               <Card
                 key={student.id}
-                className="border-0 shadow-md hover:shadow-lg transition-shadow group"
+                className="border-0 shadow-lg hover:shadow-xl transition-all duration-300 group animate-slide-up overflow-hidden"
+                style={{ animationDelay: `${(index + 1) * 50}ms` }}
               >
-                <CardContent className="p-6">
-                  <div className="flex items-start gap-4">
-                    <Avatar className="h-14 w-14">
+                <CardContent className="p-0">
+                  {/* Gradient header */}
+                  <div className="h-20 gradient-primary relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-foreground/10 to-transparent" />
+                    <div className="absolute -bottom-8 -right-8 w-24 h-24 bg-primary-foreground/10 rounded-full" />
+                  </div>
+                  
+                  {/* Avatar */}
+                  <div className="px-6 -mt-10 relative z-10">
+                    <Avatar className="h-20 w-20 border-4 border-card shadow-lg">
                       <AvatarImage src={student.avatar_url} />
-                      <AvatarFallback className="bg-primary text-primary-foreground text-lg">
+                      <AvatarFallback className="bg-primary text-primary-foreground text-xl font-semibold">
                         {getInitials(student.full_name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <h3 className="font-semibold text-foreground truncate">
-                          {student.full_name}
-                        </h3>
-                        {isProfessor && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity -mt-1 -mr-2 text-destructive hover:text-destructive hover:bg-destructive/10"
-                            onClick={() => removeStudent(student.id)}
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
-                        <Mail className="w-3.5 h-3.5" />
-                        <span className="truncate">{student.email}</span>
-                      </div>
-                      <div className="flex items-center gap-2 mt-3">
-                        <Badge variant="secondary" className="text-xs">
-                          Étudiant
-                        </Badge>
-                        <span className="text-xs text-muted-foreground">
-                          Inscrit le{' '}
-                          {format(new Date(student.created_at), 'dd MMM yyyy', { locale: fr })}
-                        </span>
-                      </div>
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-6 pt-4">
+                    <h3 className="font-bold text-lg text-foreground group-hover:text-primary transition-colors">
+                      {student.full_name}
+                    </h3>
+                    <div className="flex items-center gap-2 mt-2 text-sm text-muted-foreground">
+                      <Mail className="w-4 h-4" />
+                      <span className="truncate">{student.email}</span>
+                    </div>
+                    
+                    <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
+                      <Badge variant="secondary" className="bg-primary/10 text-primary border-0 font-medium">
+                        <GraduationCap className="w-3 h-3 mr-1" />
+                        Étudiant
+                      </Badge>
+                      <span className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {format(new Date(student.created_at), 'dd MMM yyyy', { locale: fr })}
+                      </span>
                     </div>
                   </div>
                 </CardContent>

@@ -22,7 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Course, Subject } from '@/types/database';
 import { useToast } from '@/hooks/use-toast';
 import FileUpload from '@/components/FileUpload';
-import { Plus, BookOpen, Edit2, Trash2, Calendar, Loader2, Eye, FileText, Download } from 'lucide-react';
+import { Plus, BookOpen, Edit2, Trash2, Calendar, Loader2, Eye, FileText, Download, Clock, User } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -50,12 +50,42 @@ const Courses = () => {
   const isProfessor = profile?.role === 'professor' || profile?.role === 'admin';
 
   const fetchData = async () => {
+    if (!profile) return;
+
+    // Professors see only their own courses
+    // Students see courses from their professor
+    let professorId = profile.id;
+
+    if (!isProfessor) {
+      // Get student's professor
+      const { data: assignment } = await supabase
+        .from('professor_students')
+        .select('professor_id')
+        .eq('student_id', profile.id)
+        .maybeSingle();
+
+      if (assignment) {
+        professorId = assignment.professor_id;
+      } else {
+        // Student has no professor assigned
+        setCourses([]);
+        setSubjects([]);
+        setLoading(false);
+        return;
+      }
+    }
+
     const [coursesRes, subjectsRes] = await Promise.all([
       supabase
         .from('courses')
         .select('*, subject:subjects(*), professor:profiles(*)')
+        .eq('professor_id', professorId)
         .order('created_at', { ascending: false }),
-      supabase.from('subjects').select('*').order('name'),
+      supabase
+        .from('subjects')
+        .select('*')
+        .eq('professor_id', professorId)
+        .order('name'),
     ]);
 
     if (coursesRes.data) {
@@ -75,7 +105,7 @@ const Courses = () => {
 
   useEffect(() => {
     fetchData();
-  }, [subjectFilter]);
+  }, [profile, subjectFilter]);
 
   const sendNewCourseNotification = async (courseTitle: string, subjectName: string, professorName: string) => {
     if (!profile) return;
@@ -87,7 +117,6 @@ const Courses = () => {
       .eq('professor_id', profile.id);
 
     if (!professorStudents || professorStudents.length === 0) {
-      console.log('No students assigned to this professor');
       return;
     }
 
@@ -125,7 +154,7 @@ const Courses = () => {
             },
           });
         } catch (e) {
-          console.log('Email notification skipped for', student.email);
+          console.log('Email notification skipped');
         }
       }
     }
@@ -172,7 +201,7 @@ const Courses = () => {
       } else {
         toast({ title: 'Cours créé', description: 'Le nouveau cours a été ajouté.' });
         
-        // Send email notification to all students
+        // Send notification to students
         await sendNewCourseNotification(
           formData.title,
           selectedSubject?.name || '',
@@ -224,23 +253,30 @@ const Courses = () => {
 
   return (
     <DashboardLayout>
-      <div className="space-y-6">
+      <div className="space-y-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="animate-slide-up">
-            <h1 className="text-2xl font-bold text-foreground">Cours</h1>
-            <p className="text-muted-foreground">
-              {subjectFilter
-                ? `Cours de ${subjects.find((s) => s.id === subjectFilter)?.name || 'la matière'}`
-                : 'Tous les cours disponibles'}
-            </p>
+            <div className="flex items-center gap-4 mb-2">
+              <div className="w-14 h-14 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
+                <BookOpen className="w-7 h-7 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-foreground">Cours</h1>
+                <p className="text-muted-foreground">
+                  {subjectFilter
+                    ? `Cours de ${subjects.find((s) => s.id === subjectFilter)?.name || 'la matière'}`
+                    : isProfessor ? 'Vos cours' : 'Cours de votre professeur'}
+                </p>
+              </div>
+            </div>
           </div>
 
           {isProfessor && (
             <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
               <DialogTrigger asChild>
-                <Button className="gradient-primary btn-shine shadow-glow rounded-xl">
-                  <Plus className="w-4 h-4 mr-2" />
+                <Button className="gradient-primary btn-shine shadow-glow rounded-xl h-12 px-6">
+                  <Plus className="w-5 h-5 mr-2" />
                   Nouveau cours
                 </Button>
               </DialogTrigger>
@@ -249,7 +285,7 @@ const Courses = () => {
                   <DialogHeader>
                     <DialogTitle className="text-xl">{editingCourse ? 'Modifier le cours' : 'Créer un cours'}</DialogTitle>
                     <DialogDescription>
-                      {editingCourse ? 'Modifiez les informations du cours.' : 'Ajoutez un nouveau cours. Un email sera envoyé aux étudiants.'}
+                      {editingCourse ? 'Modifiez les informations du cours.' : 'Ajoutez un nouveau cours. Vos étudiants seront notifiés.'}
                     </DialogDescription>
                   </DialogHeader>
 
@@ -262,7 +298,7 @@ const Courses = () => {
                         onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                         placeholder="Ex: Introduction aux équations"
                         required
-                        className="h-11 rounded-xl"
+                        className="h-12 rounded-xl"
                       />
                     </div>
 
@@ -273,7 +309,7 @@ const Courses = () => {
                         onValueChange={(value) => setFormData({ ...formData, subject_id: value })}
                         required
                       >
-                        <SelectTrigger className="h-11 rounded-xl">
+                        <SelectTrigger className="h-12 rounded-xl">
                           <SelectValue placeholder="Sélectionnez une matière" />
                         </SelectTrigger>
                         <SelectContent>
@@ -290,6 +326,11 @@ const Courses = () => {
                           ))}
                         </SelectContent>
                       </Select>
+                      {subjects.length === 0 && (
+                        <p className="text-xs text-muted-foreground">
+                          Créez d'abord une matière dans la section Matières
+                        </p>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -334,7 +375,7 @@ const Courses = () => {
                         type="date"
                         value={formData.deadline}
                         onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                        className="h-11 rounded-xl"
+                        className="h-12 rounded-xl"
                       />
                     </div>
                   </div>
@@ -362,25 +403,29 @@ const Courses = () => {
 
         {/* Courses grid */}
         {loading ? (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="border-0 shadow-lg">
-                <CardContent className="p-6">
-                  <div className="h-48 bg-muted animate-pulse rounded-xl" />
-                </CardContent>
-              </Card>
-            ))}
+          <div className="flex flex-col items-center justify-center py-16">
+            <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Chargement des cours...</p>
           </div>
         ) : courses.length === 0 ? (
           <Card className="border-0 shadow-lg">
-            <CardContent className="flex flex-col items-center justify-center py-16">
-              <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
-                <BookOpen className="w-10 h-10 text-primary" />
+            <CardContent className="flex flex-col items-center justify-center py-20">
+              <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center mb-6">
+                <BookOpen className="w-12 h-12 text-primary" />
               </div>
-              <h3 className="text-lg font-semibold text-foreground">Aucun cours</h3>
-              <p className="text-muted-foreground text-center mt-1 max-w-sm">
-                {isProfessor ? 'Créez votre premier cours pour commencer.' : 'Aucun cours disponible pour le moment.'}
+              <h3 className="text-xl font-semibold text-foreground mb-2">Aucun cours</h3>
+              <p className="text-muted-foreground text-center max-w-md">
+                {isProfessor 
+                  ? 'Créez votre premier cours pour commencer à enseigner.' 
+                  : "Votre professeur n'a pas encore publié de cours."}
               </p>
+              {isProfessor && subjects.length === 0 && (
+                <Link to="/subjects">
+                  <Button variant="outline" className="mt-4 rounded-xl">
+                    Créer une matière d'abord
+                  </Button>
+                </Link>
+              )}
             </CardContent>
           </Card>
         ) : (
@@ -391,6 +436,12 @@ const Courses = () => {
                 className="border-0 shadow-lg card-hover group animate-slide-up overflow-hidden"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
+                {/* Colored header */}
+                <div 
+                  className="h-3 w-full"
+                  style={{ backgroundColor: course.subject?.color || 'hsl(var(--primary))' }}
+                />
+                
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <Badge
@@ -434,6 +485,15 @@ const Courses = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
+                    {course.professor && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                          <User className="w-4 h-4 text-accent" />
+                        </div>
+                        <span className="text-muted-foreground">{course.professor.full_name}</span>
+                      </div>
+                    )}
+                    
                     {course.file_url && (
                       <div className="flex items-center gap-2 text-sm">
                         <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -442,26 +502,38 @@ const Courses = () => {
                         <span className="text-muted-foreground">Fichier joint</span>
                       </div>
                     )}
+                    
                     {course.deadline && (
                       <div className="flex items-center gap-2 text-sm">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDeadlinePassed(course.deadline) ? 'bg-destructive/10' : 'bg-muted'}`}>
-                          <Calendar className={`w-4 h-4 ${isDeadlinePassed(course.deadline) ? 'text-destructive' : 'text-muted-foreground'}`} />
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          isDeadlinePassed(course.deadline) 
+                            ? 'bg-destructive/10' 
+                            : 'bg-warning/10'
+                        }`}>
+                          <Clock className={`w-4 h-4 ${
+                            isDeadlinePassed(course.deadline)
+                              ? 'text-destructive'
+                              : 'text-warning'
+                          }`} />
                         </div>
-                        <span className={isDeadlinePassed(course.deadline) ? 'text-destructive font-medium' : 'text-muted-foreground'}>
+                        <span className={isDeadlinePassed(course.deadline) ? 'text-destructive' : 'text-muted-foreground'}>
                           {format(new Date(course.deadline), 'dd MMMM yyyy', { locale: fr })}
                         </span>
                         {isDeadlinePassed(course.deadline) && (
-                          <Badge variant="destructive" className="text-xs ml-auto">Expiré</Badge>
+                          <Badge variant="destructive" className="text-xs">Expiré</Badge>
                         )}
                       </div>
                     )}
+
+                    <div className="pt-3 mt-3 border-t border-border/50">
+                      <Link to={`/courses/${course.id}`}>
+                        <Button variant="outline" className="w-full rounded-xl group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                          <Eye className="w-4 h-4 mr-2" />
+                          Voir le détail
+                        </Button>
+                      </Link>
+                    </div>
                   </div>
-                  <Link to={`/courses/${course.id}`} className="mt-4 block">
-                    <Button variant="outline" size="sm" className="w-full rounded-xl group-hover:bg-primary group-hover:text-primary-foreground group-hover:border-primary transition-all">
-                      <Eye className="w-4 h-4 mr-2" />
-                      Voir le cours
-                    </Button>
-                  </Link>
                 </CardContent>
               </Card>
             ))}
