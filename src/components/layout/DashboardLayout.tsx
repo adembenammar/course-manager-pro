@@ -27,6 +27,7 @@ import {
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import NotificationBell from '@/components/NotificationBell';
+import GlobalSearch from '@/components/GlobalSearch';
 
 interface DashboardLayoutProps {
   children: ReactNode;

@@ -26,7 +26,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Submission } from '@/types/database';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, CheckCircle, Clock, Star, Loader2, Download, Eye, ExternalLink } from 'lucide-react';
+import { FileText, CheckCircle, Clock, Star, Loader2, Download, Eye, ExternalLink, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -34,29 +34,60 @@ const Submissions = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [filteredSubmissions, setFilteredSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [gradingDialogOpen, setGradingDialogOpen] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<Submission | null>(null);
   const [gradeData, setGradeData] = useState({ grade: '', feedback: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const isProfessor = profile?.role === 'professor' || profile?.role === 'admin';
 
   const fetchSubmissions = async () => {
-    let query = supabase
-      .from('submissions')
-      .select('*, course:courses(*, subject:subjects(*)), student:profiles(*)')
-      .order('created_at', { ascending: false });
+    if (!profile) return;
 
-    if (!isProfessor && profile) {
-      query = query.eq('student_id', profile.id);
+    if (isProfessor) {
+      // Get professor's students first
+      const { data: professorStudents } = await supabase
+        .from('professor_students')
+        .select('student_id')
+        .eq('professor_id', profile.id);
+
+      if (!professorStudents || professorStudents.length === 0) {
+        setSubmissions([]);
+        setFilteredSubmissions([]);
+        setLoading(false);
+        return;
+      }
+
+      const studentIds = professorStudents.map(ps => ps.student_id);
+
+      // Get submissions only from professor's students
+      const { data } = await supabase
+        .from('submissions')
+        .select('*, course:courses(*, subject:subjects(*)), student:profiles(*)')
+        .in('student_id', studentIds)
+        .order('created_at', { ascending: false });
+
+      if (data) {
+        setSubmissions(data as Submission[]);
+        setFilteredSubmissions(data as Submission[]);
+      }
+    } else {
+      // Students see only their own submissions
+      const { data } = await supabase
+        .from('submissions')
+        .select('*, course:courses(*, subject:subjects(*)), student:profiles(*)')
+        .eq('student_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      if (data) {
+        setSubmissions(data as Submission[]);
+        setFilteredSubmissions(data as Submission[]);
+      }
     }
 
-    const { data, error } = await query;
-
-    if (data) {
-      setSubmissions(data as Submission[]);
-    }
     setLoading(false);
   };
 
@@ -65,6 +96,22 @@ const Submissions = () => {
       fetchSubmissions();
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredSubmissions(submissions);
+    } else {
+      const query = searchQuery.toLowerCase();
+      setFilteredSubmissions(
+        submissions.filter(
+          (s) =>
+            s.student?.full_name?.toLowerCase().includes(query) ||
+            s.course?.title?.toLowerCase().includes(query) ||
+            s.course?.subject?.name?.toLowerCase().includes(query)
+        )
+      );
+    }
+  }, [searchQuery, submissions]);
 
   const openGradingDialog = (submission: Submission) => {
     setSelectedSubmission(submission);
@@ -102,23 +149,14 @@ const Submissions = () => {
       toast({ title: 'Note attribuée', description: 'La soumission a été notée.' });
       
       // Send notification to student
-      if (selectedSubmission.student?.email) {
-        try {
-          await supabase.functions.invoke('send-notification', {
-            body: {
-              to: selectedSubmission.student.email,
-              toName: selectedSubmission.student.full_name,
-              type: 'submission_graded',
-              data: {
-                courseName: selectedSubmission.course?.title,
-                grade: gradeValue,
-                feedback: gradeData.feedback,
-              },
-            },
-          });
-        } catch (e) {
-          console.log('Notification skipped');
-        }
+      if (selectedSubmission.student?.id) {
+        await supabase.from('notifications').insert({
+          user_id: selectedSubmission.student.id,
+          title: 'Travail noté',
+          message: `Votre travail "${selectedSubmission.course?.title}" a été noté: ${gradeValue}/20`,
+          type: 'grade',
+          data: { grade: gradeValue, courseName: selectedSubmission.course?.title },
+        });
       }
       
       fetchSubmissions();
@@ -139,22 +177,17 @@ const Submissions = () => {
     }
   };
 
-  const handleDownloadFile = async (fileUrl: string, fileName?: string) => {
+  const handleDownloadFile = async (fileUrl: string) => {
     try {
-      // Extract path from URL
-      const urlParts = fileUrl.split('/storage/v1/object/public/');
-      if (urlParts.length < 2) {
-        // Try signed URL approach for private bucket
-        const pathMatch = fileUrl.match(/submission-files\/(.+)/);
-        if (pathMatch) {
-          const { data, error } = await supabase.storage
-            .from('submission-files')
-            .createSignedUrl(pathMatch[1], 3600);
-          
-          if (data?.signedUrl) {
-            window.open(data.signedUrl, '_blank');
-            return;
-          }
+      const pathMatch = fileUrl.match(/submission-files\/(.+)/);
+      if (pathMatch) {
+        const { data } = await supabase.storage
+          .from('submission-files')
+          .createSignedUrl(pathMatch[1], 3600);
+        
+        if (data?.signedUrl) {
+          window.open(data.signedUrl, '_blank');
+          return;
         }
       }
       window.open(fileUrl, '_blank');
@@ -168,11 +201,29 @@ const Submissions = () => {
     <DashboardLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="animate-slide-up">
-          <h1 className="text-2xl font-bold text-foreground">Soumissions</h1>
-          <p className="text-muted-foreground">
-            {isProfessor ? 'Gérez et notez les travaux des étudiants' : 'Suivez vos soumissions de travaux'}
-          </p>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-slide-up">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl gradient-primary flex items-center justify-center shadow-glow">
+              <FileText className="w-7 h-7 text-primary-foreground" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground">Soumissions</h1>
+              <p className="text-muted-foreground">
+                {isProfessor ? 'Gérez et notez les travaux de vos étudiants' : 'Suivez vos soumissions de travaux'}
+              </p>
+            </div>
+          </div>
+
+          {/* Search bar */}
+          <div className="relative w-full sm:w-80">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background"
+            />
+          </div>
         </div>
 
         {/* Submissions table */}
@@ -182,14 +233,18 @@ const Submissions = () => {
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
               </div>
-            ) : submissions.length === 0 ? (
+            ) : filteredSubmissions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16">
                 <div className="w-20 h-20 rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
                   <FileText className="w-10 h-10 text-primary" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground">Aucune soumission</h3>
                 <p className="text-muted-foreground text-center mt-1 max-w-sm">
-                  {isProfessor ? 'Aucun travail soumis par les étudiants.' : 'Vous n\'avez pas encore soumis de travail.'}
+                  {searchQuery
+                    ? 'Aucun résultat pour cette recherche.'
+                    : isProfessor
+                    ? 'Aucun travail soumis par vos étudiants.'
+                    : 'Vous n\'avez pas encore soumis de travail.'}
                 </p>
               </div>
             ) : (
@@ -208,11 +263,16 @@ const Submissions = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {submissions.map((submission) => (
+                    {filteredSubmissions.map((submission) => (
                       <TableRow key={submission.id} className="hover:bg-muted/20 transition-colors">
                         {isProfessor && (
                           <TableCell className="font-medium">
-                            {submission.student?.full_name}
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center text-primary-foreground text-xs font-bold">
+                                {submission.student?.full_name?.charAt(0)}
+                              </div>
+                              {submission.student?.full_name}
+                            </div>
                           </TableCell>
                         )}
                         <TableCell className="font-medium">{submission.course?.title}</TableCell>
@@ -249,7 +309,7 @@ const Submissions = () => {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => handleDownloadFile(submission.file_url!)}
-                                className="gap-2"
+                                className="gap-2 rounded-lg"
                               >
                                 <Download className="w-4 h-4" />
                                 Télécharger
@@ -265,7 +325,7 @@ const Submissions = () => {
                               variant="default"
                               size="sm"
                               onClick={() => openGradingDialog(submission)}
-                              className="gradient-primary"
+                              className="gradient-primary rounded-lg"
                             >
                               <Star className="w-4 h-4 mr-1" />
                               {submission.grade !== null ? 'Modifier' : 'Noter'}

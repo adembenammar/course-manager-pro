@@ -5,10 +5,10 @@ import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { BookOpen, FolderOpen, FileText, TrendingUp, Clock, ArrowRight, Calendar, BarChart3, Users, GraduationCap, CheckCircle } from 'lucide-react';
+import { BookOpen, FolderOpen, FileText, TrendingUp, Clock, ArrowRight, Calendar, BarChart3, Users, GraduationCap, CheckCircle, Award, Target } from 'lucide-react';
 import { format, subDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar } from 'recharts';
 
 interface Stats {
   subjects: number;
@@ -17,7 +17,7 @@ interface Stats {
   pendingSubmissions: number;
   gradedSubmissions: number;
   students: number;
-  professors: number;
+  averageGrade: number;
 }
 
 interface RecentCourse {
@@ -38,6 +38,12 @@ interface StatusData {
   color: string;
 }
 
+interface SubjectStats {
+  name: string;
+  submissions: number;
+  color: string;
+}
+
 const Dashboard = () => {
   const { profile } = useAuth();
   const [stats, setStats] = useState<Stats>({ 
@@ -47,67 +53,112 @@ const Dashboard = () => {
     pendingSubmissions: 0,
     gradedSubmissions: 0,
     students: 0,
-    professors: 0
+    averageGrade: 0
   });
   const [recentCourses, setRecentCourses] = useState<RecentCourse[]>([]);
   const [submissionsByDay, setSubmissionsByDay] = useState<SubmissionsByDay[]>([]);
   const [statusData, setStatusData] = useState<StatusData[]>([]);
+  const [subjectStats, setSubjectStats] = useState<SubjectStats[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const isProfessor = profile?.role === 'professor' || profile?.role === 'admin';
 
   useEffect(() => {
     const fetchStats = async () => {
-      const [
-        subjectsRes, 
-        coursesRes, 
-        submissionsRes, 
-        pendingRes, 
-        gradedRes,
-        studentsRes,
-        professorsRes,
-        recentRes,
-        submissionsDataRes
-      ] = await Promise.all([
-        supabase.from('subjects').select('id', { count: 'exact', head: true }),
-        supabase.from('courses').select('id', { count: 'exact', head: true }),
-        supabase.from('submissions').select('id', { count: 'exact', head: true }),
-        supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('status', 'pending'),
-        supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('status', 'graded'),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student'),
-        supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'professor'),
-        supabase
-          .from('courses')
-          .select('id, title, deadline, subject:subjects(name, color)')
-          .order('created_at', { ascending: false })
-          .limit(5),
-        supabase
-          .from('submissions')
-          .select('created_at, status')
-          .gte('created_at', subDays(new Date(), 7).toISOString()),
-      ]);
+      if (!profile) return;
 
-      setStats({
-        subjects: subjectsRes.count || 0,
-        courses: coursesRes.count || 0,
-        submissions: submissionsRes.count || 0,
-        pendingSubmissions: pendingRes.count || 0,
-        gradedSubmissions: gradedRes.count || 0,
-        students: studentsRes.count || 0,
-        professors: professorsRes.count || 0,
-      });
+      if (isProfessor) {
+        // Professor: fetch only their data
+        const [
+          subjectsRes,
+          coursesRes,
+          studentsRes,
+          recentCoursesRes
+        ] = await Promise.all([
+          supabase.from('subjects').select('id', { count: 'exact', head: true }).eq('professor_id', profile.id),
+          supabase.from('courses').select('id', { count: 'exact', head: true }).eq('professor_id', profile.id),
+          supabase.from('professor_students').select('student_id', { count: 'exact', head: true }).eq('professor_id', profile.id),
+          supabase.from('courses').select('id, title, deadline, subject:subjects(name, color)').eq('professor_id', profile.id).order('created_at', { ascending: false }).limit(5),
+        ]);
 
-      if (recentRes.data) {
-        setRecentCourses(recentRes.data as RecentCourse[]);
-      }
+        // Get professor's students for submissions
+        const { data: professorStudents } = await supabase
+          .from('professor_students')
+          .select('student_id')
+          .eq('professor_id', profile.id);
 
-      // Process submissions by day
-      if (submissionsDataRes.data) {
+        let submissionsCount = 0;
+        let pendingCount = 0;
+        let gradedCount = 0;
+        let averageGrade = 0;
+        let submissionsData: any[] = [];
+        let subjectStatsData: SubjectStats[] = [];
+
+        if (professorStudents && professorStudents.length > 0) {
+          const studentIds = professorStudents.map(ps => ps.student_id);
+
+          const [submissionsRes, pendingRes, gradedRes, submissionsDataRes, subjectsWithSubmissions] = await Promise.all([
+            supabase.from('submissions').select('id', { count: 'exact', head: true }).in('student_id', studentIds),
+            supabase.from('submissions').select('id', { count: 'exact', head: true }).in('student_id', studentIds).eq('status', 'pending'),
+            supabase.from('submissions').select('id, grade', { count: 'exact' }).in('student_id', studentIds).eq('status', 'graded'),
+            supabase.from('submissions').select('created_at, status').in('student_id', studentIds).gte('created_at', subDays(new Date(), 7).toISOString()),
+            supabase.from('submissions').select('course:courses(subject:subjects(name, color))').in('student_id', studentIds),
+          ]);
+
+          submissionsCount = submissionsRes.count || 0;
+          pendingCount = pendingRes.count || 0;
+          gradedCount = gradedRes.count || 0;
+          submissionsData = submissionsDataRes.data || [];
+
+          // Calculate average grade
+          if (gradedRes.data && gradedRes.data.length > 0) {
+            const grades = gradedRes.data.filter(s => s.grade !== null).map(s => s.grade as number);
+            averageGrade = grades.length > 0 ? grades.reduce((a, b) => a + b, 0) / grades.length : 0;
+          }
+
+          // Subject stats
+          if (subjectsWithSubmissions.data) {
+            const subjectMap: Record<string, { count: number; color: string }> = {};
+            subjectsWithSubmissions.data.forEach((s: any) => {
+              const name = s.course?.subject?.name;
+              const color = s.course?.subject?.color;
+              if (name) {
+                if (!subjectMap[name]) {
+                  subjectMap[name] = { count: 0, color: color || '#3B82F6' };
+                }
+                subjectMap[name].count++;
+              }
+            });
+            subjectStatsData = Object.entries(subjectMap).map(([name, data]) => ({
+              name,
+              submissions: data.count,
+              color: data.color,
+            }));
+          }
+        }
+
+        setStats({
+          subjects: subjectsRes.count || 0,
+          courses: coursesRes.count || 0,
+          submissions: submissionsCount,
+          pendingSubmissions: pendingCount,
+          gradedSubmissions: gradedCount,
+          students: studentsRes.count || 0,
+          averageGrade: Math.round(averageGrade * 10) / 10,
+        });
+
+        if (recentCoursesRes.data) {
+          setRecentCourses(recentCoursesRes.data as RecentCourse[]);
+        }
+
+        // Process submissions by day
         const byDay: Record<string, number> = {};
         for (let i = 6; i >= 0; i--) {
           const date = format(subDays(new Date(), i), 'yyyy-MM-dd');
           byDay[date] = 0;
         }
         
-        submissionsDataRes.data.forEach((s) => {
+        submissionsData.forEach((s) => {
           const date = format(new Date(s.created_at), 'yyyy-MM-dd');
           if (byDay[date] !== undefined) {
             byDay[date]++;
@@ -121,15 +172,104 @@ const Dashboard = () => {
           }))
         );
 
-        // Process status data
-        const pending = submissionsDataRes.data.filter((s) => s.status === 'pending').length;
-        const graded = submissionsDataRes.data.filter((s) => s.status === 'graded').length;
-        const reviewed = submissionsDataRes.data.filter((s) => s.status === 'reviewed').length;
+        // Status data
+        const pending = submissionsData.filter((s) => s.status === 'pending').length;
+        const graded = submissionsData.filter((s) => s.status === 'graded').length;
+        const submitted = submissionsData.filter((s) => s.status === 'submitted').length;
 
         setStatusData([
           { name: 'En attente', value: pending, color: 'hsl(var(--warning))' },
           { name: 'Notées', value: graded, color: 'hsl(var(--success))' },
-          { name: 'Révisées', value: reviewed, color: 'hsl(var(--primary))' },
+          { name: 'Soumises', value: submitted, color: 'hsl(var(--primary))' },
+        ]);
+
+        setSubjectStats(subjectStatsData);
+
+      } else {
+        // Student: fetch their professor's courses and their submissions
+        const { data: assignment } = await supabase
+          .from('professor_students')
+          .select('professor_id')
+          .eq('student_id', profile.id)
+          .maybeSingle();
+
+        if (!assignment) {
+          setStats({ subjects: 0, courses: 0, submissions: 0, pendingSubmissions: 0, gradedSubmissions: 0, students: 0, averageGrade: 0 });
+          setLoading(false);
+          return;
+        }
+
+        const [
+          subjectsRes,
+          coursesRes,
+          submissionsRes,
+          pendingRes,
+          gradedRes,
+          recentCoursesRes,
+          submissionsDataRes
+        ] = await Promise.all([
+          supabase.from('subjects').select('id', { count: 'exact', head: true }).eq('professor_id', assignment.professor_id),
+          supabase.from('courses').select('id', { count: 'exact', head: true }).eq('professor_id', assignment.professor_id),
+          supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('student_id', profile.id),
+          supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('student_id', profile.id).eq('status', 'pending'),
+          supabase.from('submissions').select('id, grade', { count: 'exact' }).eq('student_id', profile.id).eq('status', 'graded'),
+          supabase.from('courses').select('id, title, deadline, subject:subjects(name, color)').eq('professor_id', assignment.professor_id).order('created_at', { ascending: false }).limit(5),
+          supabase.from('submissions').select('created_at, status').eq('student_id', profile.id).gte('created_at', subDays(new Date(), 7).toISOString()),
+        ]);
+
+        // Calculate average grade
+        let averageGrade = 0;
+        if (gradedRes.data && gradedRes.data.length > 0) {
+          const grades = gradedRes.data.filter(s => s.grade !== null).map(s => s.grade as number);
+          averageGrade = grades.length > 0 ? grades.reduce((a, b) => a + b, 0) / grades.length : 0;
+        }
+
+        setStats({
+          subjects: subjectsRes.count || 0,
+          courses: coursesRes.count || 0,
+          submissions: submissionsRes.count || 0,
+          pendingSubmissions: pendingRes.count || 0,
+          gradedSubmissions: gradedRes.count || 0,
+          students: 0,
+          averageGrade: Math.round(averageGrade * 10) / 10,
+        });
+
+        if (recentCoursesRes.data) {
+          setRecentCourses(recentCoursesRes.data as RecentCourse[]);
+        }
+
+        // Process submissions by day
+        const byDay: Record<string, number> = {};
+        for (let i = 6; i >= 0; i--) {
+          const date = format(subDays(new Date(), i), 'yyyy-MM-dd');
+          byDay[date] = 0;
+        }
+        
+        if (submissionsDataRes.data) {
+          submissionsDataRes.data.forEach((s) => {
+            const date = format(new Date(s.created_at), 'yyyy-MM-dd');
+            if (byDay[date] !== undefined) {
+              byDay[date]++;
+            }
+          });
+        }
+
+        setSubmissionsByDay(
+          Object.entries(byDay).map(([date, count]) => ({
+            date: format(new Date(date), 'EEE', { locale: fr }),
+            count,
+          }))
+        );
+
+        // Status data
+        const pending = submissionsDataRes.data?.filter((s) => s.status === 'pending').length || 0;
+        const graded = submissionsDataRes.data?.filter((s) => s.status === 'graded').length || 0;
+        const submitted = submissionsDataRes.data?.filter((s) => s.status === 'submitted').length || 0;
+
+        setStatusData([
+          { name: 'En attente', value: pending, color: 'hsl(var(--warning))' },
+          { name: 'Notées', value: graded, color: 'hsl(var(--success))' },
+          { name: 'Soumises', value: submitted, color: 'hsl(var(--primary))' },
         ]);
       }
 
@@ -137,63 +277,33 @@ const Dashboard = () => {
     };
 
     fetchStats();
-  }, []);
+  }, [profile, isProfessor]);
 
-  const statsCards = [
-    {
-      title: 'Matières',
-      value: stats.subjects,
-      icon: FolderOpen,
-      color: 'text-primary',
-      bgColor: 'bg-primary/10',
-      href: '/subjects',
-    },
-    {
-      title: 'Cours',
-      value: stats.courses,
-      icon: BookOpen,
-      color: 'text-accent',
-      bgColor: 'bg-accent/10',
-      href: '/courses',
-    },
-    {
-      title: 'Soumissions',
-      value: stats.submissions,
-      icon: FileText,
-      color: 'text-success',
-      bgColor: 'bg-success/10',
-      href: '/submissions',
-    },
-    {
-      title: 'En attente',
-      value: stats.pendingSubmissions,
-      icon: Clock,
-      color: 'text-warning',
-      bgColor: 'bg-warning/10',
-      href: '/submissions',
-    },
-  ];
+  const statsCards = isProfessor
+    ? [
+        { title: 'Mes Matières', value: stats.subjects, icon: FolderOpen, color: 'text-primary', bgColor: 'bg-primary/10', href: '/subjects' },
+        { title: 'Mes Cours', value: stats.courses, icon: BookOpen, color: 'text-accent', bgColor: 'bg-accent/10', href: '/courses' },
+        { title: 'Mes Étudiants', value: stats.students, icon: Users, color: 'text-success', bgColor: 'bg-success/10', href: '/students' },
+        { title: 'En attente', value: stats.pendingSubmissions, icon: Clock, color: 'text-warning', bgColor: 'bg-warning/10', href: '/submissions' },
+      ]
+    : [
+        { title: 'Matières', value: stats.subjects, icon: FolderOpen, color: 'text-primary', bgColor: 'bg-primary/10', href: '/subjects' },
+        { title: 'Cours', value: stats.courses, icon: BookOpen, color: 'text-accent', bgColor: 'bg-accent/10', href: '/courses' },
+        { title: 'Mes Soumissions', value: stats.submissions, icon: FileText, color: 'text-success', bgColor: 'bg-success/10', href: '/submissions' },
+        { title: 'En attente', value: stats.pendingSubmissions, icon: Clock, color: 'text-warning', bgColor: 'bg-warning/10', href: '/submissions' },
+      ];
 
-  const secondaryStats = [
-    {
-      title: 'Étudiants',
-      value: stats.students,
-      icon: Users,
-      color: 'text-primary',
-    },
-    {
-      title: 'Professeurs',
-      value: stats.professors,
-      icon: GraduationCap,
-      color: 'text-accent',
-    },
-    {
-      title: 'Notées',
-      value: stats.gradedSubmissions,
-      icon: CheckCircle,
-      color: 'text-success',
-    },
-  ];
+  const secondaryStats = isProfessor
+    ? [
+        { title: 'Total Soumissions', value: stats.submissions, icon: FileText, color: 'text-primary' },
+        { title: 'Travaux notés', value: stats.gradedSubmissions, icon: CheckCircle, color: 'text-success' },
+        { title: 'Moyenne générale', value: `${stats.averageGrade}/20`, icon: Award, color: 'text-accent' },
+      ]
+    : [
+        { title: 'Travaux notés', value: stats.gradedSubmissions, icon: CheckCircle, color: 'text-success' },
+        { title: 'Ma Moyenne', value: `${stats.averageGrade}/20`, icon: Award, color: 'text-accent' },
+        { title: 'Objectif', value: '15/20', icon: Target, color: 'text-primary' },
+      ];
 
   return (
     <DashboardLayout>
@@ -206,7 +316,9 @@ const Dashboard = () => {
               Bonjour, {profile?.full_name?.split(' ')[0] || 'Utilisateur'} 👋
             </h1>
             <p className="text-muted-foreground mt-3 text-lg max-w-xl">
-              Bienvenue sur votre tableau de bord. Voici un aperçu de vos activités récentes.
+              {isProfessor
+                ? 'Bienvenue sur votre tableau de bord. Gérez vos cours et suivez vos étudiants.'
+                : 'Bienvenue sur votre tableau de bord. Suivez vos cours et vos soumissions.'}
             </p>
             <div className="flex gap-3 mt-6">
               <Link to="/courses">
@@ -215,10 +327,10 @@ const Dashboard = () => {
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </Button>
               </Link>
-              <Link to="/analytics">
+              <Link to="/submissions">
                 <Button variant="outline" className="glass">
-                  <BarChart3 className="w-4 h-4 mr-2" />
-                  Analytiques
+                  <FileText className="w-4 h-4 mr-2" />
+                  Soumissions
                 </Button>
               </Link>
             </div>
@@ -262,7 +374,7 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-primary" />
-                Soumissions (7 derniers jours)
+                Activité (7 derniers jours)
               </CardTitle>
               <CardDescription>Évolution des soumissions cette semaine</CardDescription>
             </CardHeader>
@@ -358,6 +470,40 @@ const Dashboard = () => {
           </Card>
         </div>
 
+        {/* Professor: Subject stats */}
+        {isProfessor && subjectStats.length > 0 && (
+          <Card className="border-0 shadow-md glass animate-slide-up" style={{ animationDelay: '550ms' }}>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FolderOpen className="w-5 h-5 text-primary" />
+                Soumissions par matière
+              </CardTitle>
+              <CardDescription>Répartition des travaux rendus par matière</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={200}>
+                <BarChart data={subjectStats}>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="name" className="text-xs fill-muted-foreground" />
+                  <YAxis className="text-xs fill-muted-foreground" />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))', 
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px'
+                    }}
+                  />
+                  <Bar dataKey="submissions" radius={[8, 8, 0, 0]}>
+                    {subjectStats.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Secondary stats */}
         <div className="grid gap-4 md:grid-cols-3">
           {secondaryStats.map((stat, index) => (
@@ -395,7 +541,9 @@ const Dashboard = () => {
                 <BookOpen className="w-5 h-5 text-primary" />
                 Cours récents
               </CardTitle>
-              <CardDescription>Les derniers cours ajoutés à la plateforme</CardDescription>
+              <CardDescription>
+                {isProfessor ? 'Vos derniers cours ajoutés' : 'Les derniers cours de votre professeur'}
+              </CardDescription>
             </div>
             <Link to="/courses">
               <Button variant="ghost" size="sm">
@@ -416,15 +564,15 @@ const Dashboard = () => {
                 <div className="w-16 h-16 mx-auto rounded-2xl bg-primary/10 flex items-center justify-center mb-4">
                   <BookOpen className="w-8 h-8 text-primary" />
                 </div>
-                <p className="text-muted-foreground">Aucun cours disponible</p>
+                <p className="text-muted-foreground">
+                  {isProfessor ? 'Vous n\'avez pas encore créé de cours' : 'Aucun cours disponible'}
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {recentCourses.map((course, index) => (
+                {recentCourses.map((course) => (
                   <Link key={course.id} to={`/courses/${course.id}`}>
-                    <div 
-                      className="flex items-center gap-4 p-4 rounded-xl bg-secondary/30 hover:bg-secondary/60 transition-all hover:-translate-x-1 group"
-                    >
+                    <div className="flex items-center gap-4 p-4 rounded-xl bg-secondary/30 hover:bg-secondary/60 transition-all hover:-translate-x-1 group">
                       <div
                         className="w-1.5 h-14 rounded-full transition-all group-hover:h-16"
                         style={{ backgroundColor: course.subject?.color || '#3B82F6' }}

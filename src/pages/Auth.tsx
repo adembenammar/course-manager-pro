@@ -68,6 +68,43 @@ const Auth = () => {
     setIsLoading(false);
   };
 
+  const assignStudentToProfessor = async (studentEmail: string, professorId: string) => {
+    // Poll for the profile to be created (max 10 attempts, 500ms each)
+    let attempts = 0;
+    const maxAttempts = 10;
+    
+    const checkAndAssign = async (): Promise<boolean> => {
+      const { data: newProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', studentEmail)
+        .maybeSingle();
+
+      if (newProfile) {
+        const { error } = await supabase.from('professor_students').insert({
+          professor_id: professorId,
+          student_id: newProfile.id,
+        });
+        
+        if (!error) {
+          console.log('Student assigned to professor successfully');
+          return true;
+        }
+      }
+      return false;
+    };
+
+    while (attempts < maxAttempts) {
+      const success = await checkAndAssign();
+      if (success) return;
+      
+      attempts++;
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    console.log('Failed to assign student to professor after max attempts');
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -102,32 +139,20 @@ const Auth = () => {
           ? 'Cet email est déjà utilisé'
           : error.message,
       });
-    } else {
-      // If student, assign to professor
-      if (role === 'student' && selectedProfessorId) {
-        // Wait for profile to be created, then assign
-        setTimeout(async () => {
-          const { data: newProfile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('email', email)
-            .maybeSingle();
-
-          if (newProfile) {
-            await supabase.from('professor_students').insert({
-              professor_id: selectedProfessorId,
-              student_id: newProfile.id,
-            });
-          }
-        }, 1000);
-      }
-
-      toast({
-        title: 'Inscription réussie',
-        description: 'Votre compte a été créé avec succès!',
-      });
-      navigate('/dashboard');
+      setIsLoading(false);
+      return;
     }
+
+    // If student, assign to professor
+    if (role === 'student' && selectedProfessorId) {
+      await assignStudentToProfessor(email, selectedProfessorId);
+    }
+
+    toast({
+      title: 'Inscription réussie',
+      description: 'Votre compte a été créé avec succès!',
+    });
+    navigate('/dashboard');
 
     setIsLoading(false);
   };
@@ -396,16 +421,14 @@ const Auth = () => {
                           </SelectTrigger>
                           <SelectContent>
                             {professors.length === 0 ? (
-                              <div className="p-4 text-center text-muted-foreground text-sm">
+                              <SelectItem value="" disabled>
                                 Aucun professeur disponible
-                              </div>
+                              </SelectItem>
                             ) : (
                               professors.map((prof) => (
                                 <SelectItem key={prof.id} value={prof.id}>
                                   <span className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
-                                      {prof.full_name.charAt(0)}
-                                    </div>
+                                    <GraduationCap className="w-4 h-4" />
                                     {prof.full_name}
                                   </span>
                                 </SelectItem>
@@ -414,7 +437,7 @@ const Auth = () => {
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">
-                          Vous serez assigné à ce professeur et pourrez voir ses cours
+                          Vous serez assigné à ce professeur et verrez ses cours
                         </p>
                       </div>
                     )}
@@ -426,7 +449,7 @@ const Auth = () => {
                           Inscription...
                         </>
                       ) : (
-                        'Créer mon compte'
+                        "S'inscrire"
                       )}
                     </Button>
                   </form>
@@ -435,21 +458,12 @@ const Auth = () => {
             </Tabs>
           </Card>
 
-          {/* Trust badges */}
-          <div className="mt-8 flex items-center justify-center gap-6 text-muted-foreground">
-            <div className="flex items-center gap-2 text-xs">
-              <Shield className="w-4 h-4 text-success" />
-              Sécurisé
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <Lock className="w-4 h-4 text-success" />
-              Crypté
-            </div>
-            <div className="flex items-center gap-2 text-xs">
-              <Award className="w-4 h-4 text-success" />
-              Fiable
-            </div>
-          </div>
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            En vous inscrivant, vous acceptez nos{' '}
+            <a href="#" className="text-primary hover:underline">
+              conditions d'utilisation
+            </a>
+          </p>
         </div>
       </div>
     </div>
