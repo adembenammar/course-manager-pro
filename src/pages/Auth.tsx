@@ -16,6 +16,7 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [className, setClassName] = useState('');
   const [role, setRole] = useState('student');
   const [selectedProfessorId, setSelectedProfessorId] = useState('');
   const [professors, setProfessors] = useState<Profile[]>([]);
@@ -129,7 +130,7 @@ const Auth = () => {
       return;
     }
 
-    const { error } = await signUp(email, password, fullName, role);
+    const { error } = await signUp(email, password, fullName, role, className);
 
     if (error) {
       toast({
@@ -335,19 +336,36 @@ const Auth = () => {
                   </div>
                   
                   <form onSubmit={handleSignUp} className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-name" className="text-foreground font-medium">Nom complet</Label>
-                      <div className="relative group">
-                        <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <Input
-                          id="signup-name"
-                          type="text"
-                          placeholder="Jean Dupont"
-                          value={fullName}
-                          onChange={(e) => setFullName(e.target.value)}
-                          className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all"
-                          required
-                        />
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-name" className="text-foreground font-medium">Nom complet</Label>
+                        <div className="relative group">
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Input
+                            id="signup-name"
+                            type="text"
+                            placeholder="Jean Dupont"
+                            value={fullName}
+                            onChange={(e) => setFullName(e.target.value)}
+                            className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-class" className="text-foreground font-medium">Classe</Label>
+                        <div className="relative group">
+                          <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Input
+                            id="signup-class"
+                            type="text"
+                            placeholder="Ex: 3ème A"
+                            value={className}
+                            onChange={(e) => setClassName(e.target.value)}
+                            className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all"
+                          />
+                        </div>
                       </div>
                     </div>
 

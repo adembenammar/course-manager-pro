@@ -209,10 +209,17 @@ const Students = () => {
                     </div>
                     
                     <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/50">
-                      <Badge variant="secondary" className="bg-primary/10 text-primary border-0 font-medium">
-                        <GraduationCap className="w-3 h-3 mr-1" />
-                        Étudiant
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="bg-primary/10 text-primary border-0 font-medium">
+                          <GraduationCap className="w-3 h-3 mr-1" />
+                          Étudiant
+                        </Badge>
+                        {student.class_name && (
+                          <Badge variant="outline" className="font-medium">
+                            {student.class_name}
+                          </Badge>
+                        )}
+                      </div>
                       <span className="text-xs text-muted-foreground flex items-center gap-1">
                         <Calendar className="w-3 h-3" />
                         {format(new Date(student.created_at), 'dd MMM yyyy', { locale: fr })}
