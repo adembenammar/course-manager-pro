@@ -5,6 +5,7 @@ export interface Profile {
   email: string;
   role: 'student' | 'professor' | 'admin';
   avatar_url?: string;
+  class_name?: string;
   created_at: string;
   updated_at: string;
 }

@@ -164,6 +164,11 @@ const Courses = () => {
     e.preventDefault();
     if (!profile) return;
 
+    if (!formData.subject_id) {
+      toast({ variant: 'destructive', title: 'Erreur', description: 'Veuillez sélectionner une matière' });
+      return;
+    }
+
     setIsSubmitting(true);
 
     const courseData = {
