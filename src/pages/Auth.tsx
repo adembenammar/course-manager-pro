@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Profile } from '@/types/database';
-import { GraduationCap, Mail, Lock, User, Loader2, ArrowLeft, Sparkles, BookOpen, Users, Shield, Award, TrendingUp } from 'lucide-react';
+import { GraduationCap, Mail, Lock, User, Loader2, ArrowLeft, Sparkles, BookOpen, Users, Shield, Award, TrendingUp, CheckCircle, Info } from 'lucide-react';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const Auth = () => {
   const [email, setEmail] = useState('');
@@ -23,8 +25,35 @@ const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const { signIn, signUp, resetPassword, user } = useAuth();
+  const { language } = useLanguage();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const t = (fr: string, en: string) => (language === 'en' ? en : fr);
+  const passwordChecks = useMemo(
+    () => [
+      { label: t('Au moins 6 caracteres', 'At least 6 characters'), valid: password.length >= 6 },
+      { label: t('1 majuscule', '1 uppercase letter'), valid: /[A-Z]/.test(password) },
+      { label: t('1 chiffre', '1 number'), valid: /\d/.test(password) },
+      { label: t('1 symbole', '1 symbol'), valid: /[^A-Za-z0-9]/.test(password) },
+    ],
+    [password, language],
+  );
+  const passwordScore = passwordChecks.filter((c) => c.valid).length;
+  const strengthLabels = [t('Tres faible', 'Very weak'), t('Faible', 'Weak'), t('Correct', 'Okay'), t('Solide', 'Strong')];
+  const strengthColors = ['bg-destructive/80', 'bg-warning/80', 'bg-primary/80', 'bg-success/80'];
+  const featureList = language === 'en'
+    ? [
+        { icon: BookOpen, title: 'Complete management', desc: 'Courses, homework and submissions' },
+        { icon: Users, title: 'Collaboration', desc: 'Real-time discussions' },
+        { icon: TrendingUp, title: 'Progress tracking', desc: 'Analytics and stats' },
+        { icon: Shield, title: 'Secure', desc: 'Protected data' },
+      ]
+    : [
+        { icon: BookOpen, title: 'Gestion complete', desc: 'Cours, devoirs et soumissions' },
+        { icon: Users, title: 'Collaboration', desc: 'Echanges en temps reel' },
+        { icon: TrendingUp, title: 'Suivi des progres', desc: 'Analytics et statistiques' },
+        { icon: Shield, title: 'Securise', desc: 'Donnees protegees' },
+      ];
 
   useEffect(() => {
     if (user) {
@@ -39,7 +68,7 @@ const Auth = () => {
       .select('*')
       .eq('role', 'professor')
       .order('full_name');
-    
+
     if (data) {
       setProfessors(data as Profile[]);
     }
@@ -54,15 +83,15 @@ const Auth = () => {
     if (error) {
       toast({
         variant: 'destructive',
-        title: 'Erreur de connexion',
-        description: error.message === 'Invalid login credentials' 
-          ? 'Email ou mot de passe incorrect'
+        title: t('Erreur de connexion', 'Login error'),
+        description: error.message === 'Invalid login credentials'
+          ? t('Email ou mot de passe incorrect', 'Incorrect email or password')
           : error.message,
       });
     } else {
       toast({
-        title: 'Connexion réussie',
-        description: 'Bienvenue sur EduPlatform!',
+        title: t('Connexion reussie', 'Signed in'),
+        description: t('Bienvenue sur EduPlatform!', 'Welcome back to EduPlatform!'),
       });
       navigate('/dashboard');
     }
@@ -76,8 +105,8 @@ const Auth = () => {
     if (!normalizedEmail) {
       toast({
         variant: 'destructive',
-        title: 'Email requis',
-        description: 'Renseignez votre email pour réinitialiser le mot de passe.',
+        title: t('Email requis', 'Email required'),
+        description: t('Renseignez votre email pour reinitialiser le mot de passe.', 'Enter your email to reset your password.'),
       });
       return;
     }
@@ -88,13 +117,13 @@ const Auth = () => {
     if (error) {
       toast({
         variant: 'destructive',
-        title: 'Erreur',
+        title: t('Erreur', 'Error'),
         description: error.message,
       });
     } else {
       toast({
-        title: 'Email envoyé',
-        description: 'Vérifiez votre boîte mail pour réinitialiser votre mot de passe.',
+        title: t('Email envoye', 'Email sent'),
+        description: t('Verifiez votre boite mail pour reinitialiser votre mot de passe.', 'Check your inbox to reset your password.'),
       });
     }
 
@@ -105,7 +134,7 @@ const Auth = () => {
     // Poll for the profile to be created (max 20 attempts, 500ms each = 10 seconds max)
     let attempts = 0;
     const maxAttempts = 20;
-    
+
     while (attempts < maxAttempts) {
       const { data: newProfile } = await supabase
         .from('profiles')
@@ -114,7 +143,6 @@ const Auth = () => {
         .maybeSingle();
 
       if (newProfile) {
-        // Check if assignment already exists
         const { data: existingAssignment } = await supabase
           .from('professor_students')
           .select('id')
@@ -123,7 +151,6 @@ const Auth = () => {
           .maybeSingle();
 
         if (existingAssignment) {
-          console.log('Assignment already exists');
           return true;
         }
 
@@ -131,20 +158,16 @@ const Auth = () => {
           professor_id: professorId,
           student_id: newProfile.id,
         });
-        
+
         if (!error) {
-          console.log('Student assigned to professor successfully');
           return true;
-        } else {
-          console.error('Assignment error:', error.message);
         }
       }
-      
+
       attempts++;
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
-    
-    console.error('Failed to assign student to professor after max attempts');
+
     return false;
   };
 
@@ -157,8 +180,8 @@ const Auth = () => {
     if (password.length < 6) {
       toast({
         variant: 'destructive',
-        title: 'Mot de passe trop court',
-        description: 'Le mot de passe doit contenir au moins 6 caractères',
+        title: t('Mot de passe trop court', 'Password too short'),
+        description: t('Le mot de passe doit contenir au moins 6 caracteres', 'Password must be at least 6 characters'),
       });
       setIsLoading(false);
       return;
@@ -167,8 +190,8 @@ const Auth = () => {
     if (role === 'student' && !selectedProfessorId) {
       toast({
         variant: 'destructive',
-        title: 'Professeur requis',
-        description: 'Veuillez sélectionner votre professeur',
+        title: t('Professeur requis', 'Professor required'),
+        description: t('Veuillez selectionner votre professeur', 'Please select your instructor'),
       });
       setIsLoading(false);
       return;
@@ -177,8 +200,8 @@ const Auth = () => {
     if (!normalizedEmail || !normalizedEmail.includes('@') || normalizedEmail.endsWith('@')) {
       toast({
         variant: 'destructive',
-        title: 'Email invalide',
-        description: 'Vérifiez l’adresse saisie.',
+        title: t('Email invalide', 'Invalid email'),
+        description: t('Verifiez ladresse saisie.', 'Please check your email address.'),
       });
       setIsLoading(false);
       return;
@@ -189,30 +212,29 @@ const Auth = () => {
     if (error) {
       toast({
         variant: 'destructive',
-        title: 'Erreur d\'inscription',
+        title: t("Erreur d'inscription", 'Sign-up error'),
         description: error.message.includes('already registered')
-          ? 'Cet email est déjà utilisé'
+          ? t('Cet email est deja utilise', 'This email is already in use')
           : error.message,
       });
       setIsLoading(false);
       return;
     }
 
-    // If student, assign to professor - WAIT for completion
     if (role === 'student' && selectedProfessorId) {
       const assigned = await assignStudentToProfessor(normalizedEmail, selectedProfessorId);
       if (!assigned) {
         toast({
           variant: 'destructive',
-          title: 'Attention',
-          description: 'L\'assignation au professeur a échoué. Veuillez contacter l\'administrateur.',
+          title: t('Attention', 'Heads up'),
+          description: t("Lassignation au professeur a echoue. Veuillez contacter ladministrateur.", 'Assignment to the instructor failed. Please contact the admin.'),
         });
       }
     }
 
     toast({
-      title: 'Inscription réussie',
-      description: 'Votre compte a été créé avec succès!',
+      title: t('Inscription reussie', 'Sign-up successful'),
+      description: t('Votre compte a ete cree avec succes!', 'Your account has been created!'),
     });
     navigate('/dashboard');
 
@@ -220,341 +242,339 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex overflow-hidden">
-      {/* Left Panel - Branding */}
-      <div className="hidden lg:flex lg:w-1/2 relative p-12 flex-col justify-between overflow-hidden">
-        {/* Animated gradient background */}
-        <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary/90 to-accent" />
-        
-        {/* Animated shapes */}
-        <div className="absolute inset-0 overflow-hidden">
-          <div className="absolute top-20 left-20 w-72 h-72 bg-primary-foreground/10 rounded-full blur-3xl animate-pulse-soft" />
-          <div className="absolute bottom-40 right-10 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-float" />
-          <div className="absolute top-1/2 left-1/3 w-64 h-64 bg-primary-foreground/5 rounded-full blur-2xl" />
-          
-          {/* Decorative grid */}
-          <div className="absolute inset-0 opacity-10" 
-            style={{
-              backgroundImage: `radial-gradient(circle at 1px 1px, rgba(255,255,255,0.3) 1px, transparent 0)`,
-              backgroundSize: '40px 40px'
-            }}
-          />
-        </div>
-        
-        <div className="relative z-10">
-          <Link to="/" className="inline-flex items-center gap-2 text-primary-foreground/80 hover:text-primary-foreground transition-colors group">
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            Retour à l'accueil
-          </Link>
-        </div>
-
-        <div className="relative z-10 space-y-10">
-          {/* Logo */}
-          <div className="w-24 h-24 rounded-3xl bg-primary-foreground/20 backdrop-blur-xl flex items-center justify-center shadow-2xl border border-primary-foreground/20">
-            <GraduationCap className="w-12 h-12 text-primary-foreground" />
-          </div>
-          
-          <div>
-            <h1 className="text-5xl font-bold text-primary-foreground mb-6 leading-tight">
-              Bienvenue sur<br />
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-primary-foreground via-primary-foreground to-primary-foreground/70">
-                EduPlatform
-              </span>
-            </h1>
-            <p className="text-xl text-primary-foreground/80 leading-relaxed max-w-md">
-              La plateforme nouvelle génération pour gérer vos cours, suivre les progrès et communiquer efficacement.
-            </p>
-          </div>
-
-          {/* Features */}
-          <div className="space-y-5">
-            {[
-              { icon: BookOpen, title: 'Gestion complète', desc: 'Cours, devoirs et soumissions' },
-              { icon: Users, title: 'Collaboration', desc: 'Échanges en temps réel' },
-              { icon: TrendingUp, title: 'Suivi des progrès', desc: 'Analytics et statistiques' },
-              { icon: Shield, title: 'Sécurisé', desc: 'Données protégées' },
-            ].map((feature, i) => (
-              <div 
-                key={i} 
-                className="flex items-center gap-4 text-primary-foreground/90 group"
-                style={{ animationDelay: `${i * 100}ms` }}
-              >
-                <div className="w-14 h-14 rounded-2xl bg-primary-foreground/10 backdrop-blur flex items-center justify-center group-hover:bg-primary-foreground/20 transition-colors">
-                  <feature.icon className="w-6 h-6" />
-                </div>
-                <div>
-                  <p className="font-semibold text-primary-foreground">{feature.title}</p>
-                  <p className="text-sm text-primary-foreground/70">{feature.desc}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="relative z-10 flex items-center gap-4 text-primary-foreground/60 text-sm">
-          <Award className="w-5 h-5" />
-          <span>Plateforme éducative de confiance depuis 2024</span>
-        </div>
+    <div className="min-h-screen bg-background text-foreground relative overflow-hidden">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,hsl(214_100%_65%_/_0.14),transparent_35%),radial-gradient(circle_at_80%_0%,hsl(28_93%_60%_/_0.12),transparent_30%),radial-gradient(circle_at_60%_70%,hsl(221_83%_53%_/_0.08),transparent_45%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.12)_0%,rgba(255,255,255,0)_40%),linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0))]" />
       </div>
 
-      {/* Right Panel - Auth Forms */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12 bg-background relative">
-        {/* Subtle pattern */}
-        <div className="absolute inset-0 opacity-50" 
-          style={{
-            backgroundImage: `radial-gradient(circle at 2px 2px, hsl(var(--muted)) 1px, transparent 0)`,
-            backgroundSize: '32px 32px'
-          }}
-        />
-
-        <div className="w-full max-w-md animate-scale-in relative z-10">
-          {/* Mobile header */}
-          <div className="lg:hidden flex flex-col items-center mb-8">
-            <Link to="/" className="mb-6 text-muted-foreground hover:text-foreground transition-colors flex items-center gap-2">
-              <ArrowLeft className="w-4 h-4" />
-              Retour
-            </Link>
-            <div className="w-20 h-20 rounded-3xl gradient-primary flex items-center justify-center shadow-glow mb-4">
-              <GraduationCap className="w-10 h-10 text-primary-foreground" />
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+        <div className="flex items-center justify-between mb-10">
+          <Link to="/" className="inline-flex items-center gap-3 text-muted-foreground hover:text-foreground transition-colors">
+            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
+              <GraduationCap className="w-5 h-5 text-primary-foreground" />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">EduPlatform</h1>
+            <span className="font-semibold tracking-tight">EduPlatform</span>
+            <ArrowLeft className="w-4 h-4 opacity-70" />
+          </Link>
+          <div className="flex items-center gap-3">
+            <LanguageSwitcher />
+          </div>
+        </div>
+
+        <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 items-start">
+          <div className="space-y-8">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-semibold">
+              <Sparkles className="w-4 h-4" />
+              {t('Espace securise pour equipes pedagogiques', 'Secure workspace for modern teaching teams')}
+            </div>
+
+            <div className="space-y-5">
+              <h1 className="text-4xl sm:text-5xl font-black leading-[1.05] tracking-tight">
+                {t('Un portail clair pour vos classes', 'A sharp portal for your classes')}
+              </h1>
+              <p className="text-lg text-muted-foreground max-w-xl">
+                {t('Visualisez vos cours, devoirs et feedback en une seule interface inspiree des meilleurs outils SaaS.', 'See courses, homework, and feedback in one sleek, SaaS-inspired cockpit.')}
+              </p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-4">
+              {featureList.map((feature, i) => (
+                <div
+                  key={i}
+                  className="group rounded-2xl border border-border/60 bg-card/80 backdrop-blur p-4 shadow-md hover:-translate-y-1 transition-all"
+                >
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mb-3">
+                    <feature.icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <p className="font-semibold mb-1">{feature.title}</p>
+                  <p className="text-sm text-muted-foreground">{feature.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border/70 bg-card/70">
+                <Award className="w-4 h-4 text-primary" />
+                <span className="text-sm">{t('Lance en 2024', 'Launched in 2024')}</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border/70 bg-card/70">
+                <Shield className="w-4 h-4 text-success" />
+                <span className="text-sm">{t('Donnees protegees', 'Data protected')}</span>
+              </div>
+              <div className="flex items-center gap-2 px-3 py-2 rounded-xl border border-border/70 bg-card/70">
+                <Users className="w-4 h-4 text-accent" />
+                <span className="text-sm">{t('Classes synchronisees', 'Classes in sync')}</span>
+              </div>
+            </div>
           </div>
 
-          <Card className="border-0 shadow-2xl bg-card/80 backdrop-blur-xl">
-            <Tabs defaultValue="signin" className="w-full">
-              <CardContent className="p-8">
-                <TabsList className="grid w-full grid-cols-2 mb-8 bg-muted/50 p-1.5 rounded-2xl h-14">
-                  <TabsTrigger value="signin" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-md py-3 font-semibold text-sm">
-                    Connexion
-                  </TabsTrigger>
-                  <TabsTrigger value="signup" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-md py-3 font-semibold text-sm">
-                    Inscription
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="signin" className="mt-0 space-y-6">
-                  <div className="text-center mb-8">
-                    <div className="w-16 h-16 rounded-2xl gradient-primary mx-auto mb-4 flex items-center justify-center shadow-glow">
-                      <Sparkles className="w-8 h-8 text-primary-foreground" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-foreground">Bon retour!</h2>
-                    <p className="text-muted-foreground mt-2">Connectez-vous à votre compte</p>
+          <div className="relative">
+            <div className="absolute -inset-4 bg-gradient-to-r from-primary/10 via-accent/10 to-transparent rounded-[28px] blur-3xl" />
+            <Card className="relative border border-border/70 bg-card/90 backdrop-blur-xl shadow-2xl overflow-hidden rounded-[24px]">
+              <CardContent className="p-6 sm:p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                      {t('Portail', 'Portal')}
+                    </p>
+                    <h2 className="text-xl font-bold">{t('Connexion / Inscription', 'Sign in / Sign up')}</h2>
                   </div>
-                  
-                  <form onSubmit={handleSignIn} className="space-y-5">
-                    <div className="space-y-2">
-                      <Label htmlFor="signin-email" className="text-foreground font-medium">Email</Label>
-                      <div className="relative group">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <Input
-                          id="signin-email"
-                          type="email"
-                          placeholder="votre@email.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="pl-12 h-14 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all focus:shadow-md"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="signin-password" className="text-foreground font-medium">Mot de passe</Label>
-                      <div className="relative group">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <Input
-                          id="signin-password"
-                          type="password"
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="pl-12 h-14 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all focus:shadow-md"
-                          required
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <Button
-                        type="button"
-                        variant="link"
-                        className="px-0 text-sm"
-                        onClick={handleResetPassword}
-                        disabled={isResetting || isLoading}
-                      >
-                        {isResetting ? 'Envoi en cours...' : 'Mot de passe oublié ?'}
-                      </Button>
-                    </div>
-
-                    <Button type="submit" className="w-full h-14 rounded-xl gradient-primary text-base font-semibold btn-shine shadow-glow" disabled={isLoading}>
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Connexion...
-                        </>
-                      ) : (
-                        'Se connecter'
-                      )}
-                    </Button>
-                  </form>
-                </TabsContent>
-
-                <TabsContent value="signup" className="mt-0 space-y-6">
-                  <div className="text-center mb-6">
-                    <div className="w-16 h-16 rounded-2xl gradient-primary mx-auto mb-4 flex items-center justify-center shadow-glow">
-                      <User className="w-8 h-8 text-primary-foreground" />
-                    </div>
-                    <h2 className="text-2xl font-bold text-foreground">Créer un compte</h2>
-                    <p className="text-muted-foreground mt-2">Rejoignez EduPlatform</p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Shield className="w-4 h-4 text-primary" />
+                    {t('Chiffre et securise', 'Encrypted & secure')}
                   </div>
-                  
-                  <form onSubmit={handleSignUp} className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
+                </div>
+
+                <Tabs defaultValue="signin" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2 mb-6 bg-muted/50 p-1.5 rounded-2xl h-12">
+                    <TabsTrigger value="signin" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-md py-2.5 font-semibold text-sm">
+                      {t('Connexion', 'Sign in')}
+                    </TabsTrigger>
+                    <TabsTrigger value="signup" className="rounded-xl data-[state=active]:bg-background data-[state=active]:shadow-md py-2.5 font-semibold text-sm">
+                      {t('Inscription', 'Sign up')}
+                    </TabsTrigger>
+                  </TabsList>
+
+                  <TabsContent value="signin" className="mt-0 space-y-5">
+                    <form onSubmit={handleSignIn} className="space-y-4">
                       <div className="space-y-2">
-                        <Label htmlFor="signup-name" className="text-foreground font-medium">Nom complet</Label>
+                        <Label htmlFor="signin-email" className="text-foreground font-medium">{t('Email', 'Email')}</Label>
                         <div className="relative group">
-                          <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Mail aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                           <Input
-                            id="signup-name"
-                            type="text"
-                            placeholder="Jean Dupont"
-                            value={fullName}
-                            onChange={(e) => setFullName(e.target.value)}
-                            className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all"
+                            id="signin-email"
+                            type="email"
+                            placeholder={t('vous@example.com', 'you@example.com')}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all focus:shadow-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             required
                           />
                         </div>
                       </div>
 
                       <div className="space-y-2">
-                        <Label htmlFor="signup-class" className="text-foreground font-medium">Classe</Label>
+                        <Label htmlFor="signin-password" className="text-foreground font-medium">{t('Mot de passe', 'Password')}</Label>
                         <div className="relative group">
-                          <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Lock aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                           <Input
-                            id="signup-class"
-                            type="text"
-                            placeholder="Ex: 3ème A"
-                            value={className}
-                            onChange={(e) => setClassName(e.target.value)}
-                            className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all"
+                            id="signin-password"
+                            type="password"
+                            placeholder="********"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all focus:shadow-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            required
                           />
                         </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-email" className="text-foreground font-medium">Email</Label>
-                      <div className="relative group">
-                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <Input
-                          id="signup-email"
-                          type="email"
-                          placeholder="votre@email.com"
-                          value={email}
-                          onChange={(e) => setEmail(e.target.value)}
-                          className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all"
-                          required
-                        />
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <CheckCircle className="w-4 h-4 text-success" />
+                          {t('2 minutes pour demarrer', '2-minute setup')}
+                        </div>
+                        <Button
+                          type="button"
+                          variant="link"
+                          className="px-0 text-sm"
+                          onClick={handleResetPassword}
+                          disabled={isResetting || isLoading}
+                        >
+                          {isResetting ? t('Envoi en cours...', 'Sending...') : t('Mot de passe oublie ?', 'Forgot password?')}
+                        </Button>
                       </div>
+
+                      <Button type="submit" className="w-full h-12 rounded-xl gradient-primary text-base font-semibold btn-shine shadow-glow" disabled={isLoading}>
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            {t('Connexion...', 'Signing in...')}
+                          </>
+                        ) : (
+                          t('Se connecter', 'Sign in')
+                        )}
+                      </Button>
+                    </form>
+                  </TabsContent>
+
+                  <TabsContent value="signup" className="mt-0 space-y-5">
+                    <div className="rounded-2xl border border-border/50 bg-muted/30 p-4 flex items-center gap-3 text-sm">
+                      <Info className="w-5 h-5 text-primary" />
+                      <span>{t('Choisissez votre role et nous adaptons votre espace automatiquement.', 'Pick your role and we tailor the workspace automatically.')}</span>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-password" className="text-foreground font-medium">Mot de passe</Label>
-                      <div className="relative group">
-                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
-                        <Input
-                          id="signup-password"
-                          type="password"
-                          placeholder="••••••••"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all"
-                          required
-                          minLength={6}
-                        />
+                    <form onSubmit={handleSignUp} className="space-y-4">
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-name" className="text-foreground font-medium">{t('Nom complet', 'Full name')}</Label>
+                          <div className="relative group">
+                            <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <Input
+                              id="signup-name"
+                              type="text"
+                              placeholder={t('Jean Dupont', 'Jane Doe')}
+                              value={fullName}
+                              onChange={(e) => setFullName(e.target.value)}
+                              className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all"
+                              required
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="signup-class" className="text-foreground font-medium">{t('Classe', 'Class')}</Label>
+                          <div className="relative group">
+                            <BookOpen className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                            <Input
+                              id="signup-class"
+                              type="text"
+                              placeholder={t('Ex: 3eme A', 'Ex: Grade 9A')}
+                              value={className}
+                              onChange={(e) => setClassName(e.target.value)}
+                              className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all"
+                            />
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">Minimum 6 caractères</p>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="signup-role" className="text-foreground font-medium">Je suis</Label>
-                      <Select value={role} onValueChange={(value) => {
-                        setRole(value);
-                        if (value === 'professor') setSelectedProfessorId('');
-                      }}>
-                        <SelectTrigger className="h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all">
-                          <SelectValue placeholder="Sélectionnez votre rôle" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="student">
-                            <span className="flex items-center gap-2">
-                              📚 Étudiant
-                            </span>
-                          </SelectItem>
-                          <SelectItem value="professor">
-                            <span className="flex items-center gap-2">
-                              👨‍🏫 Professeur
-                            </span>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-email" className="text-foreground font-medium">{t('Email', 'Email')}</Label>
+                        <div className="relative group">
+                          <Mail aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Input
+                            id="signup-email"
+                            type="email"
+                            placeholder={t('vous@example.com', 'you@example.com')}
+                            value={email}
+                            onChange={(e) => setEmail(e.target.value)}
+                            className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            required
+                          />
+                        </div>
+                      </div>
 
-                    {/* Professor selection for students */}
-                    {role === 'student' && (
-                      <div className="space-y-2 animate-slide-up">
-                        <Label htmlFor="signup-professor" className="text-foreground font-medium">
-                          Mon professeur
-                        </Label>
-                        <Select value={selectedProfessorId} onValueChange={setSelectedProfessorId}>
-                          <SelectTrigger className="h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all">
-                            <SelectValue placeholder="Sélectionnez votre professeur" />
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-password" className="text-foreground font-medium">{t('Mot de passe', 'Password')}</Label>
+                        <div className="relative group">
+                          <Lock aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
+                          <Input
+                            id="signup-password"
+                            type="password"
+                            placeholder="********"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            required
+                            minLength={6}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <span>{t('Solidite', 'Strength')} : {strengthLabels[Math.max(0, passwordScore - 1)] || '--'}</span>
+                            <span className="text-foreground font-medium">{passwordScore}/4</span>
+                          </div>
+                          <div className="flex gap-2">
+                            {[0, 1, 2, 3].map((i) => (
+                              <div key={i} className={`h-2 flex-1 rounded-full ${passwordScore > i ? strengthColors[i] : 'bg-muted'}`} />
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            {passwordChecks.map((check) => (
+                              <div key={check.label} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${check.valid ? 'text-success bg-success/10' : 'text-muted-foreground bg-muted/40'}`}>
+                                <CheckCircle className="w-3 h-3" aria-hidden="true" />
+                                <span>{check.label}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="signup-role" className="text-foreground font-medium">{t('Je suis', 'I am')}</Label>
+                        <Select
+                          value={role}
+                          onValueChange={(value) => {
+                            setRole(value);
+                            if (value === 'professor') setSelectedProfessorId('');
+                          }}
+                        >
+                          <SelectTrigger className="h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2">
+                            <SelectValue placeholder={t('Selectionnez votre role', 'Choose your role')} />
                           </SelectTrigger>
                           <SelectContent>
-                            {professors.length === 0 ? (
-                              <div className="px-3 py-2 text-sm text-muted-foreground">
-                                Aucun professeur disponible
-                              </div>
-                            ) : (
-                              professors.map((prof) => (
-                                <SelectItem key={prof.id} value={prof.id}>
-                                  <span className="flex items-center gap-2">
-                                    <GraduationCap className="w-4 h-4" />
-                                    {prof.full_name}
-                                  </span>
-                                </SelectItem>
-                              ))
-                            )}
+                            <SelectItem value="student">
+                              <span className="flex items-center gap-2">
+                                <Users className="w-4 h-4" aria-hidden="true" />
+                                {t('Etudiant', 'Student')}
+                              </span>
+                            </SelectItem>
+                            <SelectItem value="professor">
+                              <span className="flex items-center gap-2">
+                                <GraduationCap className="w-4 h-4" aria-hidden="true" />
+                                {t('Professeur', 'Professor')}
+                              </span>
+                            </SelectItem>
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Vous serez assigné à ce professeur et verrez ses cours
-                        </p>
                       </div>
-                    )}
 
-                    <Button type="submit" className="w-full h-14 rounded-xl gradient-primary text-base font-semibold btn-shine shadow-glow mt-6" disabled={isLoading}>
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                          Inscription...
-                        </>
-                      ) : (
-                        "S'inscrire"
+                      {role === 'student' && (
+                        <div className="space-y-2 animate-slide-up">
+                          <Label htmlFor="signup-professor" className="text-foreground font-medium">
+                            {t('Mon professeur', 'My instructor')}
+                          </Label>
+                          <Select value={selectedProfessorId} onValueChange={setSelectedProfessorId}>
+                            <SelectTrigger className="h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all">
+                              <SelectValue placeholder={t('Selectionnez votre professeur', 'Select your instructor')} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {professors.length === 0 ? (
+                                <div className="px-3 py-2 text-sm text-muted-foreground">
+                                  {t('Aucun professeur disponible', 'No instructor available')}
+                                </div>
+                              ) : (
+                                professors.map((prof) => (
+                                  <SelectItem key={prof.id} value={prof.id}>
+                                    <span className="flex items-center gap-2">
+                                      <GraduationCap className="w-4 h-4" />
+                                      {prof.full_name}
+                                    </span>
+                                  </SelectItem>
+                                ))
+                              )}
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            {t('Vous serez assigne a ce professeur et verrez ses cours', 'You will be assigned to this instructor and see their courses')}
+                          </p>
+                        </div>
                       )}
-                    </Button>
-                  </form>
-                </TabsContent>
-              </CardContent>
-            </Tabs>
-          </Card>
 
-          <p className="text-center text-sm text-muted-foreground mt-6">
-            En vous inscrivant, vous acceptez nos{' '}
-            <a href="#" className="text-primary hover:underline">
-              conditions d'utilisation
-            </a>
-          </p>
+                      <Button type="submit" className="w-full h-12 rounded-xl gradient-primary text-base font-semibold btn-shine shadow-glow mt-4" disabled={isLoading}>
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                            {t('Inscription...', 'Signing up...')}
+                          </>
+                        ) : (
+                          t("S'inscrire", 'Sign up')
+                        )}
+                      </Button>
+                    </form>
+                  </TabsContent>
+                </Tabs>
+
+                <div className="mt-6 text-center text-xs text-muted-foreground">
+                  {t("En vous inscrivant, vous acceptez nos", 'By signing up, you accept our')}{' '}
+                  <a href="#" className="text-primary hover:underline">
+                    {t("conditions d'utilisation", 'terms of use')}
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

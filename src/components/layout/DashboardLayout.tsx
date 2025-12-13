@@ -24,10 +24,13 @@ import {
   X,
   BarChart3,
   MessageSquare,
+  CalendarDays,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import NotificationBell from '@/components/NotificationBell';
 import GlobalSearch from '@/components/GlobalSearch';
+import ThemeToggle from '../ThemeToggle';
+import LanguageSwitcher from '../LanguageSwitcher';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -46,6 +49,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   const navigation = [
     { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Agenda', href: '/agenda', icon: CalendarDays },
     { name: 'Flux & messages', href: '/messages', icon: MessageSquare },
     { name: 'Cours', href: '/courses', icon: BookOpen },
     { name: 'Soumissions', href: '/submissions', icon: FileText },
@@ -189,7 +193,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             </div>
           </div>
 
-          <NotificationBell />
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <ThemeToggle />
+            <NotificationBell />
+          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

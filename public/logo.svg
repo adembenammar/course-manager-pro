@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="EduPlatform">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="24" fill="url(#g)"/>
+  <path d="M24 48 60 30l36 18-36 18-36-18z" fill="#fff" opacity=".9"/>
+  <path d="M42 56v16c0 6 9 10 18 10s18-4 18-10V56" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity=".9"/>
+  <circle cx="60" cy="52" r="6" fill="#fff"/>
+</svg>

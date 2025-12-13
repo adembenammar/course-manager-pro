@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Submission } from '@/types/database';
 import { useToast } from '@/hooks/use-toast';
-import { FileText, CheckCircle, Clock, Star, Loader2, Download, Eye, ExternalLink, Search } from 'lucide-react';
+import { FileText, CheckCircle, Clock, Star, Loader2, Download, Eye, ExternalLink, Search, Printer } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -41,8 +42,73 @@ const Submissions = () => {
   const [gradeData, setGradeData] = useState({ grade: '', feedback: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [deadlineSort, setDeadlineSort] = useState<'latest' | 'oldest'>('latest');
 
   const isProfessor = profile?.role === 'professor' || profile?.role === 'admin';
+
+  const exportCsv = () => {
+    const header = ['Etudiant', 'Cours', 'Matière', 'Statut', 'Note', 'Deadline', 'Soumis le', 'Fichier'];
+    const rows = filteredSubmissions.map((s) => [
+      s.student?.full_name || '',
+      s.course?.title || '',
+      s.course?.subject?.name || '',
+      s.status,
+      s.grade ?? '',
+      s.course?.deadline ? format(new Date(s.course.deadline), 'dd/MM/yyyy', { locale: fr }) : '',
+      s.submitted_at || s.created_at ? format(new Date(s.submitted_at || s.created_at), 'dd/MM/yyyy HH:mm', { locale: fr }) : '',
+      s.file_url || '',
+    ]);
+    const csv = [header, ...rows]
+      .map((r) =>
+        r
+          .map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`)
+          .join(',')
+      )
+      .join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'soumissions.csv';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const exportPdf = () => {
+    const rows = filteredSubmissions
+      .map(
+        (s) => `<tr>
+          <td>${s.student?.full_name || ''}</td>
+          <td>${s.course?.title || ''}</td>
+          <td>${s.course?.subject?.name || ''}</td>
+          <td>${s.status}</td>
+          <td>${s.grade ?? ''}</td>
+          <td>${s.course?.deadline ? format(new Date(s.course.deadline), 'dd/MM/yyyy', { locale: fr }) : ''}</td>
+          <td>${s.submitted_at || s.created_at ? format(new Date(s.submitted_at || s.created_at), 'dd/MM/yyyy HH:mm', { locale: fr }) : ''}</td>
+        </tr>`
+      )
+      .join('');
+    const html = `<html><head><title>Soumissions</title><style>
+      table{width:100%;border-collapse:collapse;font-family:sans-serif;font-size:12px;}
+      th,td{border:1px solid #ddd;padding:6px;text-align:left;}
+      th{background:#f4f4f4;}
+    </style></head><body>
+      <h2>Soumissions export</h2>
+      <table>
+        <thead><tr>
+          <th>Etudiant</th><th>Cours</th><th>Matière</th><th>Statut</th><th>Note</th><th>Deadline</th><th>Soumis le</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </body></html>`;
+    const win = window.open('', '_blank');
+    if (!win) return;
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    win.print();
+  };
 
   const fetchSubmissions = async () => {
     if (!profile) return;
@@ -98,20 +164,30 @@ const Submissions = () => {
   }, [profile]);
 
   useEffect(() => {
-    if (searchQuery.trim() === '') {
-      setFilteredSubmissions(submissions);
-    } else {
-      const query = searchQuery.toLowerCase();
-      setFilteredSubmissions(
-        submissions.filter(
-          (s) =>
-            s.student?.full_name?.toLowerCase().includes(query) ||
-            s.course?.title?.toLowerCase().includes(query) ||
-            s.course?.subject?.name?.toLowerCase().includes(query)
-        )
+    const query = searchQuery.toLowerCase().trim();
+    let result = submissions.slice();
+
+    if (query) {
+      result = result.filter(
+        (s) =>
+          s.student?.full_name?.toLowerCase().includes(query) ||
+          s.course?.title?.toLowerCase().includes(query) ||
+          s.course?.subject?.name?.toLowerCase().includes(query)
       );
     }
-  }, [searchQuery, submissions]);
+
+    if (statusFilter !== 'all') {
+      result = result.filter((s) => s.status === statusFilter);
+    }
+
+    result = result.sort((a, b) => {
+      const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return deadlineSort === 'latest' ? dateB - dateA : dateA - dateB;
+    });
+
+    setFilteredSubmissions(result);
+  }, [searchQuery, submissions, statusFilter, deadlineSort]);
 
   const openGradingDialog = (submission: Submission) => {
     setSelectedSubmission(submission);
@@ -214,16 +290,63 @@ const Submissions = () => {
             </div>
           </div>
 
+        <div className="grid w-full gap-3 sm:grid-cols-2 lg:grid-cols-4 items-center">
           {/* Search bar */}
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <div className="relative w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" aria-hidden="true" />
+            <Label htmlFor="submission-search" className="sr-only">Rechercher une soumission</Label>
             <Input
+              id="submission-search"
               placeholder="Rechercher..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background"
             />
           </div>
+
+          {/* Status filter */}
+          <div className="w-full">
+            <Label htmlFor="status-filter" className="sr-only">Filtrer par statut</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger id="status-filter" className="h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background">
+                <SelectValue placeholder="Statut" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Tous les statuts</SelectItem>
+                <SelectItem value="pending">En attente</SelectItem>
+                <SelectItem value="submitted">Soumis</SelectItem>
+                <SelectItem value="graded">Noté</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Sort by date */}
+          <div className="w-full">
+            <Label htmlFor="sort-order" className="sr-only">Trier par date</Label>
+            <Select value={deadlineSort} onValueChange={(v: 'latest' | 'oldest') => setDeadlineSort(v)}>
+              <SelectTrigger id="sort-order" className="h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background">
+                <SelectValue placeholder="Tri par date" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="latest">Plus récentes</SelectItem>
+                <SelectItem value="oldest">Plus anciennes</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex gap-2 w-full col-span-full lg:col-span-1">
+            <Button variant="outline" className="w-1/2" onClick={exportCsv}>
+              <Download className="w-4 h-4 mr-2" />
+              Export CSV
+            </Button>
+            <Button variant="outline" className="w-1/2" onClick={exportPdf}>
+              <Printer className="w-4 h-4 mr-2" />
+              Export PDF
+            </Button>
+          </div>
+        </div>
+
+        {/* End header and filters */}
         </div>
 
         {/* Submissions table */}

@@ -2,11 +2,151 @@ import { useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { GraduationCap, BookOpen, Users, FileText, ArrowRight, Loader2, CheckCircle, Sparkles, Zap, Shield } from 'lucide-react';
+import {
+  GraduationCap,
+  BookOpen,
+  Users,
+  FileText,
+  ArrowRight,
+  Loader2,
+  CheckCircle,
+  Sparkles,
+  Zap,
+  Shield,
+} from 'lucide-react';
+import ThemeToggle from '@/components/ThemeToggle';
+import { Badge } from '@/components/ui/badge';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const Index = () => {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const { language } = useLanguage();
+
+  const copy = language === 'en'
+    ? {
+        brand: 'EduPlatform',
+        navLogin: 'Log in',
+        badge: 'Learning OS 2025',
+        heroTitle1: 'Teach boldly,',
+        heroTitle2: 'learn effortlessly.',
+        heroSubtitle:
+          'Design and run courses with cinematic clarity, live feedback, and zero admin stress.',
+        cta: 'Launch my workspace',
+        secondaryCta: 'Take the live tour',
+        noteLine1: 'Setup in 2 minutes',
+        noteLine2: 'No credit card',
+        ribbons: ['Adaptive paths', 'AI nudges', 'Clean analytics'],
+        stats: [
+          { value: '98%', label: 'Engagement', icon: Sparkles },
+          { value: '<1h', label: 'Full setup', icon: Zap },
+          { value: '0 paper', label: 'Manual work', icon: Shield },
+        ],
+        features: [
+          {
+            icon: BookOpen,
+            title: 'Course architecture',
+            description: 'Structure modules, media, and milestones with beautiful pacing.',
+            color: 'hsl(221 83% 53%)',
+          },
+          {
+            icon: Users,
+            title: 'Live collaboration',
+            description: 'Bring students into the flow with comments, reactions, and live pulses.',
+            color: 'hsl(262 83% 58%)',
+          },
+          {
+            icon: FileText,
+            title: 'Submissions & grading',
+            description: 'Collect, review, and grade without leaving the cockpit.',
+            color: 'hsl(142 76% 36%)',
+          },
+        ],
+        board: {
+          title: 'Course cockpit',
+          className: 'Grade 9A',
+          badge: 'Live sync',
+          items: [
+            { title: 'Homework - Physics', date: 'Dec 18 - 23:59', status: 'Pending', color: 'bg-amber-100 text-amber-800' },
+            { title: 'React project - Senior', date: 'Dec 20 - 18:00', status: 'Submitted', color: 'bg-blue-100 text-blue-800' },
+            { title: 'Quiz - Math', date: 'Dec 22 - 08:30', status: 'To grade', color: 'bg-emerald-100 text-emerald-800' },
+          ],
+          progressLabel: 'Progress',
+          progressFootnote: 'Deadlines on track - Auto reminders on',
+          micro: [
+            { label: 'Satisfaction', value: '4.9/5' },
+            { label: 'Late tasks', value: '-42%' },
+          ],
+        },
+        featureSectionTitle: 'The new classroom OS',
+        featureSectionSubtitle: 'Precision tools for teachers who design experiences, not spreadsheets.',
+        ctaTitle: 'Ready to launch a brighter cohort?',
+        ctaSubtitle: 'Join EduPlatform and orchestrate your next course with style.',
+        ctaButton: 'Create a free account',
+        footerText: `© ${new Date().getFullYear()} EduPlatform. All rights reserved.`,
+      }
+    : {
+        brand: 'EduPlatform',
+        navLogin: 'Connexion',
+        badge: 'Suite pédagogique 2025',
+        heroTitle1: 'Enseignez avec audace,',
+        heroTitle2: 'apprenez sans friction.',
+        heroSubtitle:
+          'Orchestrez vos cours avec une clarté cinématique, du feedback en direct et zéro charge admin.',
+        cta: 'Lancer mon espace',
+        secondaryCta: 'Voir la démo live',
+        noteLine1: 'Mise en route 2 min',
+        noteLine2: 'Sans carte bancaire',
+        ribbons: ['Parcours adaptatifs', 'Assistances IA', 'Analyses limpides'],
+        stats: [
+          { value: '98%', label: 'Engagement', icon: Sparkles },
+          { value: '<1h', label: 'Mise en place', icon: Zap },
+          { value: '0 papier', label: 'Charge manuelle', icon: Shield },
+        ],
+        features: [
+          {
+            icon: BookOpen,
+            title: 'Architecture de cours',
+            description: 'Pacez modules, médias et jalons avec fluidité et précision.',
+            color: 'hsl(221 83% 53%)',
+          },
+          {
+            icon: Users,
+            title: 'Collaboration live',
+            description: 'Commentaires, réactions et pulses en direct pour garder la classe engagée.',
+            color: 'hsl(262 83% 58%)',
+          },
+          {
+            icon: FileText,
+            title: 'Soumissions & notation',
+            description: 'Collectez, relisez et notez sans quitter le cockpit.',
+            color: 'hsl(142 76% 36%)',
+          },
+        ],
+        board: {
+          title: 'Cockpit de cours',
+          className: 'Classe de 3ème A',
+          badge: 'Sync en direct',
+          items: [
+            { title: 'Devoir - Physique', date: '18 déc - 23:59', status: 'En attente', color: 'bg-amber-100 text-amber-800' },
+            { title: 'Projet React - Terminale', date: '20 déc - 18:00', status: 'Soumis', color: 'bg-blue-100 text-blue-800' },
+            { title: 'Contrôle - Maths', date: '22 déc - 08:30', status: 'À noter', color: 'bg-emerald-100 text-emerald-800' },
+          ],
+          progressLabel: 'Progression',
+          progressFootnote: 'Délais respectés - Rappels auto activés',
+          micro: [
+            { label: 'Satisfaction', value: '4,9/5' },
+            { label: 'Retards', value: '-42%' },
+          ],
+        },
+        featureSectionTitle: 'Le nouvel OS pédagogique',
+        featureSectionSubtitle: 'Des outils précis pour des enseignants qui conçoivent des expériences, pas des tableurs.',
+        ctaTitle: 'Prêt à lancer une cohorte lumineuse ?',
+        ctaSubtitle: 'Rejoignez EduPlatform et pilotez vos cours avec panache.',
+        ctaButton: 'Créer un compte gratuit',
+        footerText: `© ${new Date().getFullYear()} EduPlatform. Tous droits réservés.`,
+      };
 
   useEffect(() => {
     if (!loading && user) {
@@ -22,188 +162,259 @@ const Index = () => {
     );
   }
 
-  const features = [
-    {
-      icon: BookOpen,
-      title: 'Gestion des cours',
-      description: 'Créez et organisez vos cours avec des deadlines, du contenu riche et des fichiers joints.',
-      color: 'hsl(221 83% 53%)',
-    },
-    {
-      icon: Users,
-      title: 'Collaboration active',
-      description: 'Échangez avec vos étudiants via les commentaires et discussions en temps réel.',
-      color: 'hsl(262 83% 58%)',
-    },
-    {
-      icon: FileText,
-      title: 'Soumissions & Notes',
-      description: 'Recevez, téléchargez et notez les travaux des étudiants facilement.',
-      color: 'hsl(142 76% 36%)',
-    },
-  ];
-
-  const stats = [
-    { value: '100%', label: 'Gratuit', icon: Sparkles },
-    { value: '24/7', label: 'Disponible', icon: Zap },
-    { value: '100%', label: 'Sécurisé', icon: Shield },
-  ];
-
   return (
-    <div className="min-h-screen bg-background overflow-hidden">
-      {/* Animated background */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse-soft" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse-soft" style={{ animationDelay: '1.5s' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-gradient-to-r from-primary/10 to-accent/10 rounded-full blur-3xl" />
+    <div className="min-h-screen bg-background text-foreground overflow-hidden relative">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_10%_20%,hsl(214_100%_60%_/_0.12),transparent_35%),radial-gradient(circle_at_80%_0%,hsl(28_93%_58%_/_0.14),transparent_30%),radial-gradient(circle_at_50%_60%,hsl(221_83%_53%_/_0.08),transparent_45%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.08)_0%,rgba(255,255,255,0)_40%),linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0))]" />
       </div>
 
       {/* Navbar */}
-      <nav className="relative z-10 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+      <nav className="relative z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6">
+          <div className="glass-strong rounded-2xl px-4 sm:px-6 h-14 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
                 <GraduationCap className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold text-foreground">EduPlatform</span>
+              <span className="text-xl font-bold tracking-tight">{copy.brand}</span>
             </div>
-            <Link to="/auth">
-              <Button variant="outline" className="rounded-full px-6 border-primary/30 hover:bg-primary hover:text-primary-foreground transition-all duration-300">
-                Connexion
-              </Button>
-            </Link>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <LanguageSwitcher />
+              <ThemeToggle />
+              <Link to="/auth">
+                <Button variant="outline" className="rounded-full px-4 sm:px-6 border-primary/30 hover:border-primary hover:bg-primary hover:text-primary-foreground transition-all duration-300">
+                  {copy.navLogin}
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </nav>
 
-      {/* Hero section */}
-      <div className="relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-32">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="flex justify-center mb-8 animate-slide-down">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-3xl gradient-primary flex items-center justify-center shadow-glow animate-float">
-                  <GraduationCap className="w-12 h-12 text-primary-foreground" />
-                </div>
-                <div className="absolute -top-1 -right-1 w-6 h-6 rounded-full bg-success flex items-center justify-center animate-bounce">
-                  <CheckCircle className="w-4 h-4 text-success-foreground" />
-                </div>
-              </div>
-            </div>
-
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium mb-6 animate-fade-in">
-              <Sparkles className="w-4 h-4" />
-              Plateforme éducative moderne
-            </div>
-
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight animate-slide-up">
-              <span className="text-foreground">Apprenez</span>
-              <br />
-              <span className="text-gradient">autrement</span>
-            </h1>
-            
-            <p className="mt-6 text-xl sm:text-2xl text-muted-foreground max-w-2xl mx-auto animate-slide-up leading-relaxed" style={{ animationDelay: '0.1s' }}>
-              La plateforme moderne de gestion de cours pour professeurs et étudiants.
-              <span className="text-foreground font-medium"> Simple, efficace, gratuit.</span>
-            </p>
-
-            <div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center animate-slide-up" style={{ animationDelay: '0.2s' }}>
-              <Link to="/auth">
-                <Button size="lg" className="gradient-primary shadow-glow text-lg px-8 py-6 rounded-2xl btn-shine group">
-                  Commencer gratuitement
-                  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </Link>
-            </div>
-
-            {/* Stats */}
-            <div className="mt-16 grid grid-cols-3 gap-8 max-w-lg mx-auto animate-slide-up" style={{ animationDelay: '0.3s' }}>
-              {stats.map((stat) => (
-                <div key={stat.label} className="text-center">
-                  <div className="flex justify-center mb-2">
-                    <stat.icon className="w-6 h-6 text-primary" />
+      <main className="relative z-10">
+        {/* Hero */}
+        <section className="pt-14 sm:pt-16 pb-20 sm:pb-24">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="grid lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+              <div className="lg:col-span-7 space-y-8">
+                <div className="flex items-center gap-3">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-semibold">
+                    <Sparkles className="w-4 h-4" />
+                    {copy.badge}
                   </div>
-                  <div className="text-2xl font-bold text-foreground">{stat.value}</div>
-                  <div className="text-sm text-muted-foreground">{stat.label}</div>
+                  <div className="h-px w-16 bg-gradient-to-r from-primary/60 to-accent/60" />
+                  <span className="text-xs sm:text-sm text-muted-foreground uppercase tracking-[0.18em]">
+                    2025
+                  </span>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Features section */}
-      <div className="relative py-24 bg-gradient-to-b from-transparent via-muted/30 to-transparent">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-foreground mb-4">Tout ce dont vous avez besoin</h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-              Des outils puissants pour gérer vos cours efficacement
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            {features.map((feature, index) => (
-              <div
-                key={feature.title}
-                className="group relative p-8 rounded-3xl bg-card border border-border shadow-md hover:shadow-xl transition-all duration-500 hover:-translate-y-2 animate-slide-up overflow-hidden"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500" 
-                     style={{ background: `radial-gradient(circle at top right, ${feature.color}10, transparent 70%)` }} />
-                <div 
-                  className="relative w-16 h-16 rounded-2xl flex items-center justify-center mb-6 transition-transform duration-500 group-hover:scale-110"
-                  style={{ backgroundColor: `${feature.color}15` }}
-                >
-                  <feature.icon className="w-8 h-8" style={{ color: feature.color }} />
+                <h1 className="text-4xl sm:text-6xl xl:text-7xl font-black leading-[1.04] tracking-tight">
+                  <span className="text-foreground">{copy.heroTitle1}</span>{' '}
+                  <span className="text-gradient">{copy.heroTitle2}</span>
+                </h1>
+                <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl leading-relaxed">
+                  {copy.heroSubtitle}
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Link to="/auth">
+                    <Button size="lg" className="gradient-primary shadow-glow text-base sm:text-lg px-7 sm:px-8 py-5 sm:py-6 rounded-2xl btn-shine group">
+                      {copy.cta}
+                      <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </Link>
+                  <a href="#features">
+                    <Button variant="secondary" size="lg" className="rounded-2xl px-6 sm:px-7 py-5 border border-border/70 hover:border-primary/60 hover:text-primary transition-all">
+                      {copy.secondaryCta}
+                    </Button>
+                  </a>
                 </div>
-                <h3 className="relative text-xl font-bold text-foreground mb-3">{feature.title}</h3>
-                <p className="relative text-muted-foreground leading-relaxed">{feature.description}</p>
+                <div className="flex flex-wrap gap-2">
+                  {copy.ribbons.map((item) => (
+                    <span key={item} className="pill bg-secondary/70 text-secondary-foreground border border-border/60">
+                      <CheckCircle className="w-3.5 h-3.5 text-primary" />
+                      {item}
+                    </span>
+                  ))}
+                </div>
+                <div className="grid sm:grid-cols-3 gap-4 pt-2">
+                  {copy.stats.map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="relative overflow-hidden rounded-2xl border border-border/50 bg-card/80 backdrop-blur shadow-lg p-4"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
+                      <div className="relative flex items-center justify-between">
+                        <div>
+                          <p className="text-xs uppercase tracking-[0.12em] text-muted-foreground">{stat.label}</p>
+                          <p className="text-2xl font-bold text-foreground mt-1">{stat.value}</p>
+                        </div>
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                          <stat.icon className="w-5 h-5 text-primary" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
-      {/* CTA section */}
-      <div className="relative py-24">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="relative rounded-3xl overflow-hidden">
-            <div className="absolute inset-0 gradient-primary opacity-90" />
-            <div className="absolute inset-0" style={{ background: 'radial-gradient(circle at top right, rgba(255,255,255,0.2), transparent 60%)' }} />
-            <div className="relative px-8 py-16 sm:px-16 text-center">
-              <h2 className="text-3xl sm:text-4xl font-bold text-primary-foreground mb-4">
-                Prêt à transformer votre enseignement ?
-              </h2>
-              <p className="text-lg text-primary-foreground/80 mb-8 max-w-xl mx-auto">
-                Rejoignez EduPlatform et découvrez une nouvelle façon d'enseigner et d'apprendre
-              </p>
-              <Link to="/auth">
-                <Button size="lg" variant="secondary" className="rounded-2xl px-8 py-6 text-lg font-semibold shadow-xl hover:scale-105 transition-transform">
-                  Créer un compte gratuit
-                  <ArrowRight className="w-5 h-5 ml-2" />
-                </Button>
-              </Link>
+              <div className="lg:col-span-5 relative">
+                <div className="absolute -top-10 -left-6 w-40 h-40 bg-primary/15 rounded-full blur-3xl" />
+                <div className="absolute -bottom-14 -right-6 w-48 h-48 bg-accent/25 rounded-full blur-3xl" />
+                <div className="absolute inset-0 rounded-[30px] bg-[radial-gradient(circle_at_20%_20%,hsl(214_100%_70%_/_0.22),transparent_50%)]" />
+                <div className="relative glass-strong rounded-[28px] p-6 sm:p-7 shadow-2xl border border-border/40">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
+                        <GraduationCap className="w-6 h-6 text-primary-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-muted-foreground">{copy.board.className}</p>
+                        <p className="text-xl font-semibold">{copy.board.title}</p>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="rounded-full px-3">
+                      {copy.board.badge}
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-3 mb-5">
+                    {copy.board.items.map((item, index) => (
+                      <div
+                        key={item.title}
+                        className="relative rounded-2xl border border-border/60 bg-gradient-to-r from-card/80 via-card/60 to-primary/5 p-4 overflow-hidden"
+                        style={{ animationDelay: `${index * 80}ms` }}
+                      >
+                        <div className="absolute inset-y-0 left-0 w-1 rounded-full bg-primary/60" />
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold text-foreground">{item.title}</p>
+                          <span className={`text-xs px-2 py-1 rounded-full ${item.color}`}>{item.status}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{item.date}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="rounded-2xl bg-gradient-to-r from-primary/12 via-card/80 to-accent/12 border border-border/60 p-5 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm text-muted-foreground">{copy.board.progressLabel}</p>
+                      <span className="text-sm font-semibold text-foreground">68%</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full bg-primary rounded-full" style={{ width: '68%' }} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">{copy.board.progressFootnote}</p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+                    {copy.board.micro.map((item) => (
+                      <div key={item.label} className="rounded-2xl border border-border/60 bg-card/70 p-3 flex flex-col gap-1">
+                        <span className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{item.label}</span>
+                        <span className="text-lg font-semibold text-foreground">{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </div>
+        </section>
 
-      {/* Footer */}
-      <footer className="relative border-t border-border py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-                <GraduationCap className="w-5 h-5 text-primary-foreground" />
+        {/* Features */}
+        <section id="features" className="relative py-20 sm:py-24">
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-muted/30 to-transparent" />
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+            <div className="grid lg:grid-cols-12 gap-10 lg:gap-14 items-start mb-12">
+              <div className="lg:col-span-4 space-y-4">
+                <p className="section-title">{copy.featureSectionTitle}</p>
+                <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
+                  {copy.featureSectionSubtitle}
+                </h2>
+                <p className="text-muted-foreground">
+                  {language === 'en'
+                    ? 'Designed to feel like a creative studio: soft glass panels, vivid gradients, and data you can actually act on.'
+                    : 'Pensé comme un studio créatif : panneaux verre dépoli, gradients vibrants et données directement actionnables.'}
+                </p>
+                <div className="flex items-center gap-3 pt-2">
+                  <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {language === 'en'
+                      ? 'Fresh interface with motion cues, perfect on desktop and mobile.'
+                      : 'Interface fraîche, animée et parfaitement fluide sur desktop comme mobile.'}
+                  </div>
+                </div>
               </div>
-              <span className="text-lg font-bold text-foreground">EduPlatform</span>
+
+              <div className="lg:col-span-8 grid md:grid-cols-2 gap-6">
+                {copy.features.map((feature, index) => (
+                  <div
+                    key={feature.title}
+                    className="group relative p-7 rounded-3xl border border-border/60 bg-card/90 backdrop-blur hover:-translate-y-1.5 transition-all duration-500 shadow-lg overflow-hidden"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <div
+                      className="absolute inset-0 opacity-60"
+                      style={{ background: `radial-gradient(circle at 20% 20%, ${feature.color}22, transparent 55%)` }}
+                    />
+                    <div
+                      className="relative w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
+                      style={{ backgroundColor: `${feature.color}20` }}
+                    >
+                      <feature.icon className="w-7 h-7" style={{ color: feature.color }} />
+                    </div>
+                    <h3 className="relative text-xl font-semibold mb-2">{feature.title}</h3>
+                    <p className="relative text-muted-foreground leading-relaxed">{feature.description}</p>
+                    <div className="relative mt-4 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
+                    <div className="relative mt-4 text-sm text-primary font-semibold inline-flex items-center gap-2">
+                      {language === 'en' ? 'See it in action' : 'Voir en action'}
+                      <ArrowRight className="w-4 h-4" />
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-            <p className="text-muted-foreground">
-              © {new Date().getFullYear()} EduPlatform. Tous droits réservés.
-            </p>
           </div>
+        </section>
+
+        {/* CTA */}
+        <section className="pb-16 sm:pb-20">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="relative overflow-hidden rounded-3xl border border-border/50 bg-gradient-to-r from-primary/90 via-primary to-accent/90 shadow-glow text-primary-foreground">
+              <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.28),transparent_40%)]" />
+              <div className="relative px-8 sm:px-14 py-14 text-center space-y-4">
+                <Badge variant="secondary" className="rounded-full bg-white/15 text-primary-foreground border-white/30">
+                  {language === 'en' ? 'Cohort-ready in minutes' : 'Cohorte prête en quelques minutes'}
+                </Badge>
+                <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
+                  {copy.ctaTitle}
+                </h2>
+                <p className="text-base sm:text-lg text-primary-foreground/80 max-w-2xl mx-auto">
+                  {copy.ctaSubtitle}
+                </p>
+                <Link to="/auth">
+                  <Button size="lg" variant="secondary" className="rounded-2xl px-8 py-5 text-lg font-semibold shadow-xl hover:scale-105 transition-transform bg-white text-primary">
+                    {copy.ctaButton}
+                    <ArrowRight className="w-5 h-5 ml-2" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="relative border-t border-border/70 py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
+              <GraduationCap className="w-5 h-5 text-primary-foreground" />
+            </div>
+            <span className="text-lg font-bold">{copy.brand}</span>
+          </div>
+          <p className="text-muted-foreground text-sm text-center sm:text-right">
+            {copy.footerText}
+          </p>
         </div>
       </footer>
     </div>

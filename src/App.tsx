@@ -13,10 +13,13 @@ import CourseDetail from "./pages/CourseDetail";
 import Submissions from "./pages/Submissions";
 import Students from "./pages/Students";
 import Analytics from "./pages/Analytics";
+import Agenda from "./pages/Agenda";
 import Settings from "./pages/Settings";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
+import ResetPassword from "./pages/ResetPassword";
+import { LanguageProvider } from "./contexts/LanguageContext";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +46,7 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<Index />} />
       <Route path="/auth" element={<Auth />} />
+      <Route path="/auth/reset" element={<ResetPassword />} />
       <Route
         path="/dashboard"
         element={
@@ -100,6 +104,14 @@ const AppRoutes = () => {
         }
       />
       <Route
+        path="/agenda"
+        element={
+          <ProtectedRoute>
+            <Agenda />
+          </ProtectedRoute>
+        }
+      />
+      <Route
         path="/settings"
         element={
           <ProtectedRoute>
@@ -126,9 +138,11 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AuthProvider>
-          <AppRoutes />
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <AppRoutes />
+          </AuthProvider>
+        </LanguageProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>

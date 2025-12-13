@@ -104,13 +104,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    // Try global sign-out (server + local). If it fails (e.g., 403/CORS), force local cleanup.
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      await supabase.auth.signOut({ scope: 'local' });
+    }
+    setSession(null);
+    setUser(null);
     setProfile(null);
   };
 
   const resetPassword = async (email: string) => {
+    const appUrl = (import.meta.env.VITE_APP_URL as string | undefined)?.replace(/\/$/, '') || window.location.origin;
+    const redirectTo = `${appUrl}/auth/reset`;
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth`,
+      redirectTo,
     });
 
     return { error: error as Error | null };

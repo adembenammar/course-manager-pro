@@ -13,8 +13,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
   Area,
   AreaChart
 } from 'recharts';
@@ -27,9 +25,10 @@ import {
   Calendar,
   CheckCircle,
   Clock,
-  XCircle
+  XCircle,
+  AlertTriangle
 } from 'lucide-react';
-import { format, subDays, startOfWeek, endOfWeek } from 'date-fns';
+import { format, subDays, startOfWeek, endOfWeek, addDays, isAfter, isBefore, isSameDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 interface AnalyticsData {
@@ -42,6 +41,9 @@ interface AnalyticsData {
   coursesBySubject: { name: string; count: number; color: string }[];
   submissionsOverTime: { date: string; count: number }[];
   gradeDistribution: { range: string; count: number }[];
+  progressBySubject: { name: string; submissions: number; graded: number; average: number; color: string }[];
+  lateHeatmap: { date: string; count: number }[];
+  riskCourses: { id: string; title: string; deadline?: string | null; subject?: string | null; color?: string | null; submissions: number }[];
 }
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
@@ -57,20 +59,20 @@ const Analytics = () => {
         studentsRes,
         professorsRes,
         coursesRes,
-        submissionsRes,
-        subjectsRes,
+        submissionsDetailedRes,
         gradesRes,
       ] = await Promise.all([
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'student'),
         supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'professor'),
-        supabase.from('courses').select('id, subject_id, subjects(name, color)'),
-        supabase.from('submissions').select('id, status, grade, created_at'),
-        supabase.from('subjects').select('id, name, color'),
+        supabase.from('courses').select('id, title, deadline, subject:subjects(name, color)'),
+        supabase
+          .from('submissions')
+          .select('id, status, grade, created_at, submitted_at, course:courses(id, title, deadline, subject:subjects(name, color))'),
         supabase.from('submissions').select('grade').not('grade', 'is', null),
       ]);
 
       // Process submissions by status
-      const submissions = submissionsRes.data || [];
+      const submissions = submissionsDetailedRes.data || [];
       const statusCounts = {
         pending: 0,
         submitted: 0,
@@ -82,16 +84,32 @@ const Analytics = () => {
         }
       });
 
-      // Process courses by subject
+      // Process courses by subject + progression
       const courses = coursesRes.data || [];
       const subjectCounts: Record<string, { count: number; color: string }> = {};
+      const subjectProgress: Record<string, { submissions: number; graded: number; totalGrade: number; color: string }> = {};
       courses.forEach((c: any) => {
-        const subjectName = c.subjects?.name || 'Sans matière';
-        const color = c.subjects?.color || '#6B7280';
+        const subjectName = c.subject?.name || c.subjects?.name || 'Sans matière';
+        const color = c.subject?.color || c.subjects?.color || '#6B7280';
         if (!subjectCounts[subjectName]) {
           subjectCounts[subjectName] = { count: 0, color };
         }
+        if (!subjectProgress[subjectName]) {
+          subjectProgress[subjectName] = { submissions: 0, graded: 0, totalGrade: 0, color };
+        }
         subjectCounts[subjectName].count++;
+      });
+      submissions.forEach((s: any) => {
+        const subjectName = s.course?.subject?.name || 'Sans matière';
+        const color = s.course?.subject?.color || '#6B7280';
+        if (!subjectProgress[subjectName]) {
+          subjectProgress[subjectName] = { submissions: 0, graded: 0, totalGrade: 0, color };
+        }
+        subjectProgress[subjectName].submissions++;
+        if (s.status === 'graded' && s.grade !== null) {
+          subjectProgress[subjectName].graded++;
+          subjectProgress[subjectName].totalGrade += Number(s.grade);
+        }
       });
 
       // Process submissions over time (last 7 days)
@@ -106,6 +124,19 @@ const Analytics = () => {
           date: format(date, 'EEE', { locale: fr }),
           count,
         });
+      }
+
+      // Late submissions heatmap (last 30 days)
+      const lateHeatmap = [];
+      for (let i = 29; i >= 0; i--) {
+        const date = subDays(new Date(), i);
+        const dateStr = format(date, 'yyyy-MM-dd');
+        const count = submissions.filter((s: any) => {
+          const deadline = s.course?.deadline ? new Date(s.course.deadline) : null;
+          const submittedAt = s.submitted_at ? new Date(s.submitted_at) : new Date(s.created_at);
+          return deadline && submittedAt > deadline && format(submittedAt, 'yyyy-MM-dd') === dateStr;
+        }).length;
+        lateHeatmap.push({ date: format(date, 'dd MMM', { locale: fr }), count });
       }
 
       // Process grade distribution
@@ -130,6 +161,36 @@ const Analytics = () => {
           ? grades.reduce((sum: number, g: any) => sum + Number(g.grade), 0) / grades.length
           : 0;
 
+      // Progression par matière
+      const progressBySubject = Object.entries(subjectProgress).map(([name, value]) => ({
+        name,
+        submissions: value.submissions,
+        graded: value.graded,
+        average: value.graded ? Math.round((value.totalGrade / value.graded) * 10) / 10 : 0,
+        color: value.color,
+      }));
+
+      // Détection des devoirs à risque : deadline < 3 jours et peu de soumissions
+      const now = new Date();
+      const soon = addDays(now, 3);
+      const submissionByCourse: Record<string, number> = {};
+      submissions.forEach((s: any) => {
+        const courseId = s.course?.id;
+        if (!courseId) return;
+        submissionByCourse[courseId] = (submissionByCourse[courseId] || 0) + 1;
+      });
+      const riskCourses =
+        courses
+          ?.filter((c: any) => c.deadline && isAfter(new Date(c.deadline), now) && isBefore(new Date(c.deadline), soon))
+          .map((c: any) => ({
+            id: c.id,
+            title: c.title,
+            deadline: c.deadline,
+            subject: c.subject?.name,
+            color: c.subject?.color,
+            submissions: submissionByCourse[c.id] || 0,
+          })) || [];
+
       setData({
         totalStudents: studentsRes.count || 0,
         totalProfessors: professorsRes.count || 0,
@@ -151,6 +212,9 @@ const Analytics = () => {
           range,
           count,
         })),
+        progressBySubject,
+        lateHeatmap,
+        riskCourses,
       });
 
       setLoading(false);
@@ -236,6 +300,71 @@ const Analytics = () => {
               </CardContent>
             </Card>
           ))}
+        </div>
+
+        {/* Alerts + risk */}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+                Devoirs à risque (deadline {'<'} 3 jours)
+              </CardTitle>
+              <CardDescription>Cours proches avec peu de soumissions</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {data?.riskCourses?.length ? (
+                data.riskCourses.map((c) => (
+                  <div key={c.id} className="p-3 rounded-lg border border-border/60 bg-card flex items-start gap-3">
+                    <div
+                      className="w-2 h-10 rounded-full"
+                      style={{ backgroundColor: c.color || 'hsl(var(--primary))' }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-foreground truncate">{c.title}</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {c.deadline ? format(new Date(c.deadline), 'dd MMM HH:mm', { locale: fr }) : 'Sans deadline'}
+                        {c.subject && <span className="ml-1 text-xs text-foreground">• {c.subject}</span>}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Soumissions reçues : {c.submissions}</p>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground">Aucun cours à risque détecté.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="w-5 h-5 text-accent" />
+                Progression par matière
+              </CardTitle>
+              <CardDescription>Soumissions, corrections et moyenne</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {data?.progressBySubject.map((s) => (
+                  <div key={s.name} className="p-3 rounded-lg border border-border/60 bg-card">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="w-2 h-8 rounded-full" style={{ backgroundColor: s.color }} />
+                        <div>
+                          <p className="font-semibold text-foreground">{s.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {s.submissions} soum. • {s.graded} notées • Moy. {s.average}/20
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Charts row 1 */}
@@ -391,6 +520,48 @@ const Analytics = () => {
                   />
                   <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                 </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Heatmap / retard */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Card className="border-0 shadow-md">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <XCircle className="w-5 h-5 text-destructive" />
+                Retards (30 derniers jours)
+              </CardTitle>
+              <CardDescription>Soumissions après deadline</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={data?.lateHeatmap}>
+                  <defs>
+                    <linearGradient id="lateColor" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="hsl(var(--destructive))" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="hsl(var(--destructive))" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                  <XAxis dataKey="date" className="text-xs" />
+                  <YAxis className="text-xs" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '8px',
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="count"
+                    stroke="hsl(var(--destructive))"
+                    fill="url(#lateColor)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
               </ResponsiveContainer>
             </CardContent>
           </Card>
