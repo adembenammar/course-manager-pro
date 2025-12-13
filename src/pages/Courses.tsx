@@ -22,7 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Course, Subject } from '@/types/database';
 import { useToast } from '@/hooks/use-toast';
 import FileUpload from '@/components/FileUpload';
-import { Plus, BookOpen, Edit2, Trash2, Calendar, Loader2, Eye, FileText, Download, Clock, User } from 'lucide-react';
+import { Plus, BookOpen, Edit2, Trash2, Calendar, Loader2, Eye, FileText, Download, Clock, User, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -38,6 +38,7 @@ const Courses = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -256,6 +257,18 @@ const Courses = () => {
     return new Date(deadline) < new Date();
   };
 
+  const filteredCourses = courses.filter((course) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+
+    return [
+      course.title || '',
+      course.description || '',
+      course.subject?.name || '',
+      course.professor?.full_name || '',
+    ].some((field) => field.toLowerCase().includes(query));
+  });
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -406,6 +419,17 @@ const Courses = () => {
           )}
         </div>
 
+        {/* Search bar */}
+        <div className="relative w-full sm:w-96">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher un cours..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background"
+          />
+        </div>
+
         {/* Courses grid */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16">
@@ -433,9 +457,21 @@ const Courses = () => {
               )}
             </CardContent>
           </Card>
+        ) : filteredCourses.length === 0 ? (
+          <Card className="border-0 shadow-lg">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <div className="w-20 h-20 rounded-2xl bg-muted/40 flex items-center justify-center mb-4">
+                <Search className="w-10 h-10 text-muted-foreground/70" />
+              </div>
+              <h3 className="text-lg font-semibold text-foreground">Aucun résultat</h3>
+              <p className="text-muted-foreground text-center mt-1 max-w-sm">
+                Aucun cours ne correspond à votre recherche.
+              </p>
+            </CardContent>
+          </Card>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {courses.map((course, index) => (
+            {filteredCourses.map((course, index) => (
               <Card 
                 key={course.id} 
                 className="border-0 shadow-lg card-hover group animate-slide-up overflow-hidden"

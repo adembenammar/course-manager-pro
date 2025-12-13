@@ -14,6 +14,7 @@ import Submissions from "./pages/Submissions";
 import Students from "./pages/Students";
 import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
+import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 
@@ -103,6 +104,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Settings />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages"
+        element={
+          <ProtectedRoute>
+            <Messages />
           </ProtectedRoute>
         }
       />

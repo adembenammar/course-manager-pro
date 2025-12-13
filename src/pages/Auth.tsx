@@ -21,7 +21,8 @@ const Auth = () => {
   const [selectedProfessorId, setSelectedProfessorId] = useState('');
   const [professors, setProfessors] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { signIn, signUp, user } = useAuth();
+  const [isResetting, setIsResetting] = useState(false);
+  const { signIn, signUp, resetPassword, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -67,6 +68,37 @@ const Auth = () => {
     }
 
     setIsLoading(false);
+  };
+
+  const handleResetPassword = async () => {
+    const normalizedEmail = email.trim().toLowerCase();
+
+    if (!normalizedEmail) {
+      toast({
+        variant: 'destructive',
+        title: 'Email requis',
+        description: 'Renseignez votre email pour réinitialiser le mot de passe.',
+      });
+      return;
+    }
+
+    setIsResetting(true);
+    const { error } = await resetPassword(normalizedEmail);
+
+    if (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Erreur',
+        description: error.message,
+      });
+    } else {
+      toast({
+        title: 'Email envoyé',
+        description: 'Vérifiez votre boîte mail pour réinitialiser votre mot de passe.',
+      });
+    }
+
+    setIsResetting(false);
   };
 
   const assignStudentToProfessor = async (studentEmail: string, professorId: string): Promise<boolean> => {
@@ -120,6 +152,8 @@ const Auth = () => {
     e.preventDefault();
     setIsLoading(true);
 
+    const normalizedEmail = email.trim().toLowerCase();
+
     if (password.length < 6) {
       toast({
         variant: 'destructive',
@@ -140,7 +174,17 @@ const Auth = () => {
       return;
     }
 
-    const { error } = await signUp(email, password, fullName, role, className);
+    if (!normalizedEmail || !normalizedEmail.includes('@') || normalizedEmail.endsWith('@')) {
+      toast({
+        variant: 'destructive',
+        title: 'Email invalide',
+        description: 'Vérifiez l’adresse saisie.',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const { error } = await signUp(normalizedEmail, password, fullName, role, className);
 
     if (error) {
       toast({
@@ -156,7 +200,7 @@ const Auth = () => {
 
     // If student, assign to professor - WAIT for completion
     if (role === 'student' && selectedProfessorId) {
-      const assigned = await assignStudentToProfessor(email, selectedProfessorId);
+      const assigned = await assignStudentToProfessor(normalizedEmail, selectedProfessorId);
       if (!assigned) {
         toast({
           variant: 'destructive',
@@ -330,6 +374,18 @@ const Auth = () => {
                       </div>
                     </div>
 
+                    <div className="flex justify-end">
+                      <Button
+                        type="button"
+                        variant="link"
+                        className="px-0 text-sm"
+                        onClick={handleResetPassword}
+                        disabled={isResetting || isLoading}
+                      >
+                        {isResetting ? 'Envoi en cours...' : 'Mot de passe oublié ?'}
+                      </Button>
+                    </div>
+
                     <Button type="submit" className="w-full h-14 rounded-xl gradient-primary text-base font-semibold btn-shine shadow-glow" disabled={isLoading}>
                       {isLoading ? (
                         <>
@@ -456,9 +512,9 @@ const Auth = () => {
                           </SelectTrigger>
                           <SelectContent>
                             {professors.length === 0 ? (
-                              <SelectItem value="" disabled>
+                              <div className="px-3 py-2 text-sm text-muted-foreground">
                                 Aucun professeur disponible
-                              </SelectItem>
+                              </div>
                             ) : (
                               professors.map((prof) => (
                                 <SelectItem key={prof.id} value={prof.id}>

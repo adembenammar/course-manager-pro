@@ -36,6 +36,19 @@ npm i
 npm run dev
 ```
 
+## Environment setup (Supabase)
+
+Copy the template and fill in your Supabase project credentials:
+
+```sh
+cp .env.example .env
+```
+
+Required keys:
+- `VITE_SUPABASE_PROJECT_ID`
+- `VITE_SUPABASE_PUBLISHABLE_KEY` (anon/public)
+- `VITE_SUPABASE_URL`
+
 **Edit a file directly in GitHub**
 
 - Navigate to the desired file(s).

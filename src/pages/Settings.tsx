@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Profile } from '@/types/database';
-import { Settings as SettingsIcon, User, Mail, BookOpen, Calendar, Loader2, Save, Camera, GraduationCap } from 'lucide-react';
+import FileUpload from '@/components/FileUpload';
+import { Settings as SettingsIcon, User, Mail, BookOpen, Calendar, Loader2, Save, Camera, GraduationCap, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -23,6 +24,7 @@ const Settings = () => {
   const [professors, setProfessors] = useState<Profile[]>([]);
   const [currentProfessor, setCurrentProfessor] = useState<Profile | null>(null);
   const [selectedProfessorId, setSelectedProfessorId] = useState('');
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [formData, setFormData] = useState({
     full_name: '',
     class_name: '',
@@ -151,6 +153,31 @@ const Settings = () => {
     }
   };
 
+  const handleAvatarUpload = async (url: string) => {
+    if (!profile) return;
+
+    setAvatarUploading(true);
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ avatar_url: url || null })
+      .eq('id', profile.id);
+
+    if (error) {
+      toast({ variant: 'destructive', title: 'Erreur', description: error.message });
+    } else {
+      await refreshProfile();
+      toast({
+        title: url ? 'Photo mise à jour' : 'Photo supprimée',
+        description: url
+          ? 'Votre nouvelle image de profil est enregistrée.'
+          : 'Votre image de profil a été retirée.',
+      });
+    }
+
+    setAvatarUploading(false);
+  };
+
   if (!profile || !user) {
     return (
       <DashboardLayout>
@@ -177,39 +204,104 @@ const Settings = () => {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-slide-up" style={{ animationDelay: '80ms' }}>
+          <Card className="border-0 shadow-lg bg-gradient-to-r from-primary/10 via-background to-background/80">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground tracking-wide">Membre depuis</p>
+                <p className="text-lg font-semibold text-foreground">
+                  {user.created_at ? format(new Date(user.created_at), 'dd MMM yyyy', { locale: fr }) : '-'}
+                </p>
+              </div>
+              <Calendar className="w-6 h-6 text-primary" />
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-lg bg-gradient-to-r from-accent/10 via-background to-background/80">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground tracking-wide">Rôle</p>
+                <p className="text-lg font-semibold text-foreground">{getRoleLabel(profile.role)}</p>
+              </div>
+              <BookOpen className="w-6 h-6 text-accent" />
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-lg bg-gradient-to-r from-success/10 via-background to-background/80">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground tracking-wide">Email</p>
+                <p className="text-lg font-semibold text-foreground truncate max-w-[160px]">{profile.email}</p>
+              </div>
+              <Mail className="w-6 h-6 text-success" />
+            </CardContent>
+          </Card>
+        </div>
+
         <div className="grid gap-6 md:grid-cols-3">
           {/* Profile Card */}
-          <Card className="md:col-span-1 border-0 shadow-lg">
-            <CardContent className="p-6 flex flex-col items-center text-center">
+          <Card className="md:col-span-1 border-0 shadow-xl overflow-hidden bg-gradient-to-br from-primary/10 via-background to-accent/5 relative">
+            <div className="absolute inset-0 opacity-40 pointer-events-none">
+              <div className="absolute -top-10 -left-10 w-32 h-32 bg-primary/30 blur-3xl" />
+              <div className="absolute -bottom-14 -right-6 w-36 h-36 bg-accent/30 blur-3xl" />
+            </div>
+            <CardContent className="p-6 flex flex-col items-center text-center relative z-10">
               <div className="relative mb-4">
-                <Avatar className="w-24 h-24 border-4 border-background shadow-xl">
+                <div className="absolute inset-0 blur-xl bg-primary/30 rounded-full animate-pulse" />
+                <Avatar className="w-24 h-24 border-4 border-background shadow-xl relative">
                   <AvatarImage src={profile.avatar_url || undefined} />
                   <AvatarFallback className="text-2xl font-bold gradient-primary text-primary-foreground">
                     {profile.full_name?.charAt(0).toUpperCase()}
                   </AvatarFallback>
                 </Avatar>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  className="absolute -bottom-1 -right-1 rounded-full w-8 h-8 shadow-md"
-                  disabled
-                >
-                  <Camera className="w-4 h-4" />
-                </Button>
               </div>
 
-              <h3 className="text-xl font-bold text-foreground mb-1">{profile.full_name}</h3>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="text-xl font-bold text-foreground">{profile.full_name}</h3>
+                <Sparkles className="w-4 h-4 text-primary" />
+              </div>
               <p className="text-sm text-muted-foreground mb-3">{profile.email}</p>
               
-              <Badge variant="outline" className={`${getRoleColor(profile.role)} px-3 py-1`}>
-                {getRoleLabel(profile.role)}
-              </Badge>
-
-              {profile.class_name && (
-                <Badge variant="secondary" className="mt-2">
-                  {profile.class_name}
+              <div className="flex flex-wrap justify-center gap-2">
+                <Badge variant="outline" className={`${getRoleColor(profile.role)} px-3 py-1`}>
+                  {getRoleLabel(profile.role)}
                 </Badge>
-              )}
+
+                {profile.class_name && (
+                  <Badge variant="secondary">
+                    {profile.class_name}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="w-full mt-6 space-y-3">
+                <Label className="font-medium text-left w-full">Photo de profil</Label>
+                <FileUpload
+                  bucket="course-files"
+                  folder={`profile-images/${profile.id}`}
+                  accept="image/*"
+                  maxSize={5}
+                  existingFile={profile.avatar_url ? 'Image actuelle' : undefined}
+                  onUploadComplete={async (url) => handleAvatarUpload(url)}
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full rounded-xl"
+                  disabled={avatarUploading}
+                  onClick={() => handleAvatarUpload('')}
+                >
+                  {avatarUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Mise à jour...
+                    </>
+                  ) : (
+                    <>
+                      <Camera className="w-4 h-4 mr-2" />
+                      Retirer l'image
+                    </>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
 

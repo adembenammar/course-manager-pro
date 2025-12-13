@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -23,8 +23,8 @@ import {
   Menu,
   X,
   BarChart3,
+  MessageSquare,
 } from 'lucide-react';
-import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import NotificationBell from '@/components/NotificationBell';
 import GlobalSearch from '@/components/GlobalSearch';
@@ -46,9 +46,10 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
   const navigation = [
     { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Matières', href: '/subjects', icon: FolderOpen },
+    { name: 'Flux & messages', href: '/messages', icon: MessageSquare },
     { name: 'Cours', href: '/courses', icon: BookOpen },
     { name: 'Soumissions', href: '/submissions', icon: FileText },
+    { name: 'Matières', href: '/subjects', icon: FolderOpen },
     { name: 'Analytiques', href: '/analytics', icon: BarChart3 },
   ];
 
@@ -66,7 +67,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/40">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -78,17 +79,22 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 w-64 bg-card border-r border-border transform transition-transform duration-300 ease-in-out lg:translate-x-0',
+          'fixed inset-y-0 left-0 z-50 w-72 bg-sidebar-background border-r border-sidebar-border transform transition-transform duration-300 ease-in-out lg:translate-x-0 shadow-lg',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         )}
       >
         <div className="flex h-full flex-col">
           {/* Logo */}
-          <div className="flex h-16 items-center gap-3 px-6 border-b border-border">
-            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-              <GraduationCap className="w-5 h-5 text-primary-foreground" />
-            </div>
-            <span className="text-lg font-bold text-foreground">EduPlatform</span>
+          <div className="flex h-16 items-center gap-3 px-6 border-b border-sidebar-border/80">
+            <Link to="/dashboard" className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center shadow-glow">
+                <GraduationCap className="w-5 h-5 text-primary-foreground" />
+              </div>
+              <div className="flex flex-col">
+                <span className="text-lg font-bold text-sidebar-foreground">EduPlatform</span>
+                <span className="text-xs text-muted-foreground">Étudiants & enseignants</span>
+              </div>
+            </Link>
             <Button
               variant="ghost"
               size="icon"
@@ -100,7 +106,8 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 space-y-1 px-3 py-4">
+          <nav className="flex-1 space-y-4 px-4 py-6 overflow-y-auto">
+            <p className="section-title px-2">Navigation</p>
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               return (
@@ -109,9 +116,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   to={item.href}
                   onClick={() => setSidebarOpen(false)}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all',
+                    'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
                     isActive
-                      ? 'bg-primary text-primary-foreground shadow-md'
+                      ? 'bg-primary/10 text-foreground border border-primary/30 shadow-sm'
                       : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
                   )}
                 >
@@ -123,7 +130,14 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </nav>
 
           {/* User section */}
-          <div className="border-t border-border p-4">
+          <div className="border-t border-sidebar-border/80 p-4 space-y-3">
+            <Link
+              to="/settings"
+              className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-secondary transition-colors"
+            >
+              <Settings className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm text-foreground">Paramètres</span>
+            </Link>
             <div className="flex items-center gap-3 px-2">
               <Avatar className="h-10 w-10">
                 <AvatarImage src={profile?.avatar_url} />
@@ -132,11 +146,15 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                 </AvatarFallback>
               </Avatar>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
+                <p className="text-sm font-semibold text-foreground truncate">
                   {profile?.full_name || 'Utilisateur'}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">
-                  {profile?.role === 'student' ? 'Étudiant' : profile?.role === 'professor' ? 'Professeur' : 'Admin'}
+                  {profile?.role === 'student'
+                    ? 'Étudiant'
+                    : profile?.role === 'professor'
+                      ? 'Professeur'
+                      : 'Admin'}
                 </p>
               </div>
             </div>
@@ -145,9 +163,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
       </aside>
 
       {/* Main content */}
-      <div className="lg:pl-64">
+      <div className="lg:pl-72">
         {/* Top bar */}
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-card/80 backdrop-blur-sm px-4 lg:px-6">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b border-border bg-card/80 backdrop-blur-md px-4 lg:px-8 shadow-sm">
           <Button
             variant="ghost"
             size="icon"
@@ -157,7 +175,19 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             <Menu className="h-5 w-5" />
           </Button>
 
-          <div className="flex-1" />
+          <div className="flex items-center gap-3 flex-1 max-w-3xl">
+            <div className="hidden md:block flex-1">
+              <GlobalSearch />
+            </div>
+            <div className="flex items-center gap-2">
+              <Button asChild variant="outline" size="sm" className="rounded-full hidden sm:inline-flex">
+                <Link to="/courses">Cours</Link>
+              </Button>
+              <Button asChild size="sm" className="rounded-full gradient-primary shadow-glow">
+                <Link to="/submissions">Soumissions</Link>
+              </Button>
+            </div>
+          </div>
 
           <NotificationBell />
 
@@ -196,7 +226,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
         </header>
 
         {/* Page content */}
-        <main className="p-4 lg:p-6">{children}</main>
+        <main className="p-4 lg:p-8">{children}</main>
       </div>
     </div>
   );
