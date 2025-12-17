@@ -224,7 +224,7 @@ const Index = () => {
                 <p className="text-muted-foreground">
                   {language === 'en'
                     ? 'Designed to feel like a creative studio: soft glass panels, vivid gradients, and data you can actually act on.'
-                    : 'Pensé comme un studio créatif : panneaux verre dépoli, gradients vibrants et données directement actionnables.'}
+                    : 'PensÃ© comme un studio crÃ©atif : panneaux verre dÃ©poli, gradients vibrants et donnÃ©es directement actionnables.'}
                 </p>
                 <div className="flex items-center gap-3 pt-2">
                   <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
@@ -233,7 +233,7 @@ const Index = () => {
                   <div className="text-sm text-muted-foreground">
                     {language === 'en'
                       ? 'Fresh interface with motion cues, perfect on desktop and mobile.'
-                      : 'Interface fraîche, animée et parfaitement fluide sur desktop comme mobile.'}
+                      : 'Interface fraÃ®che, animÃ©e et parfaitement fluide sur desktop comme mobile.'}
                   </div>
                 </div>
               </div>
@@ -276,7 +276,7 @@ const Index = () => {
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.28),transparent_40%)]" />
               <div className="relative px-8 sm:px-14 py-14 text-center space-y-4">
                 <Badge variant="secondary" className="rounded-full bg-white/15 text-primary-foreground border-white/30">
-                  {language === 'en' ? 'Cohort-ready in minutes' : 'Cohorte prête en quelques minutes'}
+                  {language === 'en' ? 'Cohort-ready in minutes' : 'Cohorte prÃªte en quelques minutes'}
                 </Badge>
                 <h2 className="text-3xl sm:text-4xl font-bold leading-tight">
                   {copy.ctaTitle}
@@ -313,5 +313,5 @@ const Index = () => {
   );
 };
 
-export default Index;
-
+export default Index;
+
