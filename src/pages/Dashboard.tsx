@@ -20,14 +20,14 @@ import {
   Target,
 } from 'lucide-react';
 import { format, subDays } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { fr, enUS } from 'date-fns/locale';
 import {
   AreaChart,
   Area,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
+  Tooltip as RechartsTooltip,
   ResponsiveContainer,
   PieChart,
   Pie,
@@ -35,6 +35,7 @@ import {
   BarChart,
   Bar,
 } from 'recharts';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface Stats {
   subjects: number;
@@ -72,6 +73,8 @@ interface SubjectStats {
 
 const Dashboard = () => {
   const { profile } = useAuth();
+  const { t, language } = useTranslation();
+  const dateLocale = language === 'en' ? enUS : fr;
   const [stats, setStats] = useState<Stats>({
     subjects: 0,
     courses: 0,
@@ -90,6 +93,12 @@ const Dashboard = () => {
   const isProfessor = profile?.role === 'professor' || profile?.role === 'admin';
 
   useEffect(() => {
+    const statusLabels = {
+      pending: t('En attente', 'Pending'),
+      graded: t('Notees', 'Graded'),
+      submitted: t('Soumises', 'Submitted'),
+    };
+
     const fetchStats = async () => {
       if (!profile) return;
 
@@ -183,7 +192,7 @@ const Dashboard = () => {
 
         setSubmissionsByDay(
           Object.entries(byDay).map(([date, count]) => ({
-            date: format(new Date(date), 'EEE', { locale: fr }),
+            date: format(new Date(date), 'EEE', { locale: dateLocale }),
             count,
           }))
         );
@@ -193,9 +202,9 @@ const Dashboard = () => {
         const submitted = submissionsData.filter((s) => s.status === 'submitted').length;
 
         setStatusData([
-          { name: 'En attente', value: pending, color: 'hsl(var(--warning))' },
-          { name: 'Notées', value: graded, color: 'hsl(var(--success))' },
-          { name: 'Soumises', value: submitted, color: 'hsl(var(--primary))' },
+          { name: statusLabels.pending, value: pending, color: 'hsl(var(--warning))' },
+          { name: statusLabels.graded, value: graded, color: 'hsl(var(--success))' },
+          { name: statusLabels.submitted, value: submitted, color: 'hsl(var(--primary))' },
         ]);
 
         setSubjectStats(subjectStatsData);
@@ -267,7 +276,7 @@ const Dashboard = () => {
 
         setSubmissionsByDay(
           Object.entries(byDay).map(([date, count]) => ({
-            date: format(new Date(date), 'EEE', { locale: fr }),
+            date: format(new Date(date), 'EEE', { locale: dateLocale }),
             count,
           }))
         );
@@ -277,9 +286,9 @@ const Dashboard = () => {
         const submitted = submissionsDataRes.data?.filter((s) => s.status === 'submitted').length || 0;
 
         setStatusData([
-          { name: 'En attente', value: pending, color: 'hsl(var(--warning))' },
-          { name: 'Notées', value: graded, color: 'hsl(var(--success))' },
-          { name: 'Soumises', value: submitted, color: 'hsl(var(--primary))' },
+          { name: statusLabels.pending, value: pending, color: 'hsl(var(--warning))' },
+          { name: statusLabels.graded, value: graded, color: 'hsl(var(--success))' },
+          { name: statusLabels.submitted, value: submitted, color: 'hsl(var(--primary))' },
         ]);
       }
 
@@ -287,80 +296,128 @@ const Dashboard = () => {
     };
 
     fetchStats();
-  }, [profile, isProfessor]);
+  }, [profile, isProfessor, language, t, dateLocale]);
 
   const statsCards = isProfessor
     ? [
-        { title: 'Mes matières', value: stats.subjects, icon: FolderOpen, color: 'text-primary', bgColor: 'bg-primary/10', href: '/subjects' },
-        { title: 'Mes cours', value: stats.courses, icon: BookOpen, color: 'text-accent', bgColor: 'bg-accent/10', href: '/courses' },
-        { title: 'Mes étudiants', value: stats.students, icon: Users, color: 'text-success', bgColor: 'bg-success/10', href: '/students' },
-        { title: 'En attente', value: stats.pendingSubmissions, icon: Clock, color: 'text-warning', bgColor: 'bg-warning/10', href: '/submissions' },
+        { title: t('Mes matieres', 'My subjects'), value: stats.subjects, icon: FolderOpen, color: 'text-primary', bgColor: 'bg-primary/10', href: '/subjects' },
+        { title: t('Mes cours', 'My courses'), value: stats.courses, icon: BookOpen, color: 'text-accent', bgColor: 'bg-accent/10', href: '/courses' },
+        { title: t('Mes etudiants', 'My students'), value: stats.students, icon: Users, color: 'text-success', bgColor: 'bg-success/10', href: '/students' },
+        { title: t('En attente', 'Pending'), value: stats.pendingSubmissions, icon: Clock, color: 'text-warning', bgColor: 'bg-warning/10', href: '/submissions' },
       ]
     : [
-        { title: 'Matières', value: stats.subjects, icon: FolderOpen, color: 'text-primary', bgColor: 'bg-primary/10', href: '/subjects' },
-        { title: 'Cours', value: stats.courses, icon: BookOpen, color: 'text-accent', bgColor: 'bg-accent/10', href: '/courses' },
-        { title: 'Mes soumissions', value: stats.submissions, icon: FileText, color: 'text-success', bgColor: 'bg-success/10', href: '/submissions' },
-        { title: 'En attente', value: stats.pendingSubmissions, icon: Clock, color: 'text-warning', bgColor: 'bg-warning/10', href: '/submissions' },
+        { title: t('Matieres', 'Subjects'), value: stats.subjects, icon: FolderOpen, color: 'text-primary', bgColor: 'bg-primary/10', href: '/subjects' },
+        { title: t('Cours', 'Courses'), value: stats.courses, icon: BookOpen, color: 'text-accent', bgColor: 'bg-accent/10', href: '/courses' },
+        { title: t('Mes soumissions', 'My submissions'), value: stats.submissions, icon: FileText, color: 'text-success', bgColor: 'bg-success/10', href: '/submissions' },
+        { title: t('En attente', 'Pending'), value: stats.pendingSubmissions, icon: Clock, color: 'text-warning', bgColor: 'bg-warning/10', href: '/submissions' },
       ];
 
   const secondaryStats = isProfessor
     ? [
-        { title: 'Total soumissions', value: stats.submissions, icon: FileText, color: 'text-primary' },
-        { title: 'Travaux notés', value: stats.gradedSubmissions, icon: CheckCircle, color: 'text-success' },
-        { title: 'Moyenne générale', value: `${stats.averageGrade}/20`, icon: Award, color: 'text-accent' },
+        { title: t('Total soumissions', 'Total submissions'), value: stats.submissions, icon: FileText, color: 'text-primary' },
+        { title: t('Travaux notes', 'Graded work'), value: stats.gradedSubmissions, icon: CheckCircle, color: 'text-success' },
+        { title: t('Moyenne generale', 'Average grade'), value: `${stats.averageGrade}/20`, icon: Award, color: 'text-accent' },
       ]
     : [
-        { title: 'Travaux notés', value: stats.gradedSubmissions, icon: CheckCircle, color: 'text-success' },
-        { title: 'Ma moyenne', value: `${stats.averageGrade}/20`, icon: Award, color: 'text-accent' },
-        { title: 'Objectif', value: '15/20', icon: Target, color: 'text-primary' },
+        { title: t('Travaux notes', 'Graded work'), value: stats.gradedSubmissions, icon: CheckCircle, color: 'text-success' },
+        { title: t('Ma moyenne', 'My average'), value: `${stats.averageGrade}/20`, icon: Award, color: 'text-accent' },
+        { title: t('Objectif', 'Goal'), value: '15/20', icon: Target, color: 'text-primary' },
       ];
 
   return (
     <DashboardLayout>
       <div className="space-y-8 page-grid">
-        <div className="surface p-6 lg:p-8 animate-slide-up">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+        <div className="surface p-6 lg:p-8 animate-slide-up relative overflow-hidden">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-0 bg-gradient-to-br from-primary/12 via-transparent to-accent/12" />
+            <div className="absolute -top-24 -right-16 w-64 h-64 bg-primary/15 blur-3xl" />
+            <div className="absolute -bottom-28 -left-20 w-72 h-72 bg-accent/18 blur-3xl" />
+          </div>
+          <div className="relative flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div className="space-y-3">
-              <p className="section-title">Bienvenue</p>
+              <p className="section-title">{t('Bienvenue', 'Welcome')}</p>
               <h1 className="text-3xl lg:text-4xl font-bold tracking-tight text-foreground">
-                Bonjour, {profile?.full_name?.split(' ')[0] || 'Utilisateur'}
+                {t('Bonjour', 'Hello')}, {profile?.full_name?.split(' ')[0] || t('Utilisateur', 'User')}
               </h1>
               <p className="text-muted-foreground max-w-2xl">
                 {isProfessor
-                  ? 'Gérez vos cours, suivez les soumissions et animez votre flux d’échanges avec vos étudiants.'
-                  : 'Retrouvez vos cours, soumettez vos travaux et restez à jour sur vos échanges.'}
+                  ? t(
+                      'Gerez vos cours, suivez les soumissions et animez vos echanges avec vos etudiants.',
+                      'Manage courses, follow submissions, and guide your students in one place.'
+                    )
+                  : t(
+                      'Retrouvez vos cours, soumettez vos travaux et restez a jour sur vos echanges.',
+                      'Find your courses, submit work, and keep up with your feedback.'
+                    )}
               </p>
               <div className="flex flex-wrap gap-3 pt-1">
                 <Link to="/courses">
                   <Button className="gradient-primary btn-shine shadow-glow rounded-full px-5">
-                    Voir les cours
+                    {t('Voir les cours', 'Browse courses')}
                     <ArrowRight className="w-4 h-4 ml-2" />
                   </Button>
                 </Link>
                 <Link to="/submissions">
                   <Button variant="outline" className="rounded-full px-5">
                     <FileText className="w-4 h-4 mr-2" />
-                    Soumissions
+                    {t('Soumissions', 'Submissions')}
                   </Button>
                 </Link>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3 w-full lg:w-auto lg:min-w-[260px]">
               {secondaryStats.slice(0, 2).map((stat) => (
-                <div key={stat.title} className="rounded-2xl border border-border bg-muted/40 p-4">
+                <div key={stat.title} className="rounded-2xl border border-border/70 bg-card/80 backdrop-blur p-4 shadow-md">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-card flex items-center justify-center">
+                    <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
                       <stat.icon className={`w-5 h-5 ${stat.color}`} />
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">{stat.title}</p>
-                      <p className="text-lg font-semibold text-foreground">{loading ? '—' : stat.value}</p>
+                      <p className="text-lg font-semibold text-foreground">{loading ? '...' : stat.value}</p>
                     </div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Actions rapides */}
+        <div className="grid sm:grid-cols-3 gap-3">
+          <Link to="/courses">
+            <Card className="surface card-hover p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                <BookOpen className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{t('Créer / voir les cours', 'Create / view courses')}</p>
+                <p className="text-xs text-muted-foreground">{t('Ajouter du contenu et des ressources', 'Add content and resources')}</p>
+              </div>
+            </Card>
+          </Link>
+          <Link to="/subjects">
+            <Card className="surface card-hover p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+                <FolderOpen className="w-5 h-5 text-accent" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{t('Gérer les matières', 'Manage subjects')}</p>
+                <p className="text-xs text-muted-foreground">{t('Couleurs, descriptions, organisation', 'Colors, descriptions, organization')}</p>
+              </div>
+            </Card>
+          </Link>
+          <Link to="/submissions">
+            <Card className="surface card-hover p-4 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-warning/10 flex items-center justify-center">
+                <FileText className="w-5 h-5 text-warning" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">{t('Noter / suivre les travaux', 'Grade / track work')}</p>
+                <p className="text-xs text-muted-foreground">{t('Statuts, notes, téléchargements', 'Statuses, grades, downloads')}</p>
+              </div>
+            </Card>
+          </Link>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -397,9 +454,11 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <TrendingUp className="w-5 h-5 text-primary" />
-                Activité (7 derniers jours)
+                {t('Activite (7 derniers jours)', 'Activity (last 7 days)')}
               </CardTitle>
-              <CardDescription>Évolution des soumissions cette semaine</CardDescription>
+              <CardDescription>
+                {t('Evolution des soumissions cette semaine', 'Submissions trend this week')}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -416,7 +475,7 @@ const Dashboard = () => {
                     <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                     <XAxis dataKey="date" className="text-xs fill-muted-foreground" />
                     <YAxis className="text-xs fill-muted-foreground" />
-                    <Tooltip
+                    <RechartsTooltip
                       contentStyle={{
                         backgroundColor: 'hsl(var(--card))',
                         border: '1px solid hsl(var(--border))',
@@ -441,9 +500,11 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <BarChart3 className="w-5 h-5 text-accent" />
-                Distribution par statut
+                {t('Distribution par statut', 'Status distribution')}
               </CardTitle>
-              <CardDescription>Répartition des soumissions par statut</CardDescription>
+              <CardDescription>
+                {t('Repartition des soumissions par statut', 'Submissions by status')}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -465,7 +526,7 @@ const Dashboard = () => {
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip
+                      <RechartsTooltip
                         contentStyle={{
                           backgroundColor: 'hsl(var(--card))',
                           border: '1px solid hsl(var(--border))',
@@ -494,9 +555,11 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FolderOpen className="w-5 h-5 text-primary" />
-                Soumissions par matière
+                {t('Soumissions par matiere', 'Submissions by subject')}
               </CardTitle>
-              <CardDescription>Répartition des travaux rendus par matière</CardDescription>
+              <CardDescription>
+                {t('Repartition des travaux rendus par matiere', 'Breakdown of submissions by subject')}
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={200}>
@@ -504,7 +567,7 @@ const Dashboard = () => {
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis dataKey="name" className="text-xs fill-muted-foreground" />
                   <YAxis className="text-xs fill-muted-foreground" />
-                  <Tooltip
+                  <RechartsTooltip
                     contentStyle={{
                       backgroundColor: 'hsl(var(--card))',
                       border: '1px solid hsl(var(--border))',
@@ -531,7 +594,7 @@ const Dashboard = () => {
             >
               <CardContent className="p-6">
                 <div className="flex items-center gap-4">
-                  <div className={`w-12 h-12 rounded-xl bg-muted/80 flex items-center justify-center`}>
+                  <div className="w-12 h-12 rounded-xl bg-muted/80 flex items-center justify-center">
                     <stat.icon className={`w-6 h-6 ${stat.color}`} />
                   </div>
                   <div>
@@ -555,15 +618,15 @@ const Dashboard = () => {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <BookOpen className="w-5 h-5 text-primary" />
-                Cours récents
+                {t('Cours recents', 'Recent courses')}
               </CardTitle>
               <CardDescription>
-                {isProfessor ? 'Vos derniers cours ajoutés' : 'Les derniers cours de votre professeur'}
+                {isProfessor ? t('Vos derniers cours ajoutes', 'Your latest courses') : t('Les derniers cours de votre professeur', 'Latest courses from your instructor')}
               </CardDescription>
             </div>
             <Link to="/courses">
               <Button variant="ghost" size="sm">
-                Voir tout
+                {t('Voir tout', 'View all')}
                 <ArrowRight className="w-4 h-4 ml-1" />
               </Button>
             </Link>
@@ -581,7 +644,7 @@ const Dashboard = () => {
                   <BookOpen className="w-8 h-8 text-primary" />
                 </div>
                 <p className="text-muted-foreground">
-                  {isProfessor ? "Vous n'avez pas encore créé de cours" : 'Aucun cours disponible'}
+                  {isProfessor ? t("Vous n'avez pas encore cree de cours", 'You have not created any courses yet') : t('Aucun cours disponible', 'No courses available')}
                 </p>
               </div>
             ) : (
@@ -597,16 +660,16 @@ const Dashboard = () => {
                         <p className="font-semibold text-foreground truncate group-hover:text-primary transition-colors">
                           {course.title}
                         </p>
-                        <p className="text-sm text-muted-foreground">{course.subject?.name || 'Sans matière'}</p>
+                        <p className="text-sm text-muted-foreground">{course.subject?.name || t('Sans matiere', 'No subject')}</p>
                       </div>
                       {course.deadline && (
                         <div className="text-right hidden sm:block">
                           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
                             <Calendar className="w-3.5 h-3.5" />
-                            <span>Deadline</span>
+                            <span>{t('Deadline', 'Deadline')}</span>
                           </div>
                           <p className="text-sm font-medium text-foreground">
-                            {format(new Date(course.deadline), 'dd MMM yyyy', { locale: fr })}
+                            {format(new Date(course.deadline), 'dd MMM yyyy', { locale: dateLocale })}
                           </p>
                         </div>
                       )}

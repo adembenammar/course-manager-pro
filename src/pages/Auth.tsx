@@ -24,6 +24,8 @@ const Auth = () => {
   const [professors, setProfessors] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { signIn, signUp, resetPassword, user } = useAuth();
   const { language } = useLanguage();
   const navigate = useNavigate();
@@ -62,6 +64,15 @@ const Auth = () => {
     fetchProfessors();
   }, [user, navigate]);
 
+  useEffect(() => {
+    const savedEmail = localStorage.getItem('remember_email');
+    const savedFlag = localStorage.getItem('remember_me');
+    if (savedEmail && savedFlag === 'true') {
+      setEmail(savedEmail);
+      setRememberMe(true);
+    }
+  }, []);
+
   const fetchProfessors = async () => {
     const { data } = await supabase
       .from('profiles')
@@ -93,6 +104,13 @@ const Auth = () => {
         title: t('Connexion reussie', 'Signed in'),
         description: t('Bienvenue sur EduPlatform!', 'Welcome back to EduPlatform!'),
       });
+      if (rememberMe) {
+        localStorage.setItem('remember_email', email);
+        localStorage.setItem('remember_me', 'true');
+      } else {
+        localStorage.removeItem('remember_email');
+        localStorage.removeItem('remember_me');
+      }
       navigate('/dashboard');
     }
 
@@ -360,21 +378,33 @@ const Auth = () => {
                           <Lock aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
                           <Input
                             id="signin-password"
-                            type="password"
+                            type={showPassword ? 'text' : 'password'}
                             placeholder="********"
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
-                            className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all focus:shadow-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
+                            className="pl-12 pr-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all focus:shadow-md focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2"
                             required
                           />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword((p) => !p)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-lg"
+                            aria-label={showPassword ? t('Masquer le mot de passe', 'Hide password') : t('Afficher le mot de passe', 'Show password')}
+                          >
+                            {showPassword ? '🐻' : '🐻‍❄️'}
+                          </button>
                         </div>
                       </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <CheckCircle className="w-4 h-4 text-success" />
-                          {t('2 minutes pour demarrer', '2-minute setup')}
-                        </div>
+                      <div className="flex items-center justify-between text-sm text-muted-foreground">
+                        <label className="inline-flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="h-4 w-4 rounded border-border text-primary focus:ring-primary"
+                          />
+                          <span>{t('Se souvenir de moi', 'Remember me')}</span>
+                        </label>
                         <Button
                           type="button"
                           variant="link"
@@ -384,6 +414,11 @@ const Auth = () => {
                         >
                           {isResetting ? t('Envoi en cours...', 'Sending...') : t('Mot de passe oublie ?', 'Forgot password?')}
                         </Button>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <CheckCircle className="w-4 h-4 text-success" />
+                        {t('2 minutes pour demarrer', '2-minute setup')}
                       </div>
 
                       <Button type="submit" className="w-full h-12 rounded-xl gradient-primary text-base font-semibold btn-shine shadow-glow" disabled={isLoading}>

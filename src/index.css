@@ -139,6 +139,21 @@
   ::-webkit-scrollbar-thumb {
     @apply bg-muted-foreground/20 rounded-full hover:bg-muted-foreground/30;
   }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px hsl(var(--primary) / 0.12);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 }
 
 @layer components {
@@ -179,11 +194,42 @@
   .stat-card::before {
     content: '';
     @apply absolute inset-0 opacity-5;
-    background: radial-gradient(circle at top right, currentColor, transparent 70%);
+    background: radial-gradient(circle at 20% 20%, currentColor, transparent 55%);
   }
 
   .surface {
-    @apply rounded-2xl border border-border bg-card shadow-md;
+    @apply relative overflow-hidden rounded-2xl border border-border bg-card shadow-md;
+    z-index: 0;
+  }
+
+  .surface::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(120deg, hsl(var(--primary) / 0.06), hsl(var(--accent) / 0.06));
+    opacity: 0.65;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .surface::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 10%;
+    right: 10%;
+    height: 3px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--accent)));
+    opacity: 0.65;
+    box-shadow: 0 10px 30px hsl(var(--primary) / 0.18);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .surface > * {
+    position: relative;
+    z-index: 2;
   }
 
   .pill {
@@ -212,6 +258,13 @@
     background: var(--gradient-card);
   }
 
+  .text-gradient {
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
   .shadow-glow {
     box-shadow: var(--shadow-glow);
   }
@@ -220,6 +273,18 @@
     box-shadow: var(--shadow-glow-accent);
   }
 
+  .bg-dot-grid {
+    background-image: radial-gradient(hsl(var(--border)) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  .bg-aurora {
+    background:
+      radial-gradient(circle at 20% 20%, hsl(var(--primary) / 0.16), transparent 38%),
+      radial-gradient(circle at 80% 15%, hsl(var(--accent) / 0.18), transparent 36%),
+      radial-gradient(circle at 50% 70%, hsl(var(--primary) / 0.12), transparent 42%);
+    filter: blur(0px);
+  }
 
   .animate-float {
     animation: float 6s ease-in-out infinite;

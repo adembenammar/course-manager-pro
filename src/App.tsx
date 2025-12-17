@@ -15,7 +15,6 @@ import Students from "./pages/Students";
 import Analytics from "./pages/Analytics";
 import Agenda from "./pages/Agenda";
 import Settings from "./pages/Settings";
-import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import { Loader2 } from "lucide-react";
 import ResetPassword from "./pages/ResetPassword";
@@ -116,14 +115,6 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Settings />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/messages"
-        element={
-          <ProtectedRoute>
-            <Messages />
           </ProtectedRoute>
         }
       />

@@ -35,6 +35,7 @@ const Courses = () => {
   const [courses, setCourses] = useState<Course[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeSubject, setActiveSubject] = useState<string>(subjectFilter || 'all');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -53,12 +54,9 @@ const Courses = () => {
   const fetchData = async () => {
     if (!profile) return;
 
-    // Professors see only their own courses
-    // Students see courses from their professor
     let professorId = profile.id;
 
     if (!isProfessor) {
-      // Get student's professor
       const { data: assignment } = await supabase
         .from('professor_students')
         .select('professor_id')
@@ -68,7 +66,6 @@ const Courses = () => {
       if (assignment) {
         professorId = assignment.professor_id;
       } else {
-        // Student has no professor assigned
         setCourses([]);
         setSubjects([]);
         setLoading(false);
@@ -106,12 +103,12 @@ const Courses = () => {
 
   useEffect(() => {
     fetchData();
+    setActiveSubject(subjectFilter || 'all');
   }, [profile, subjectFilter]);
 
   const sendNewCourseNotification = async (courseTitle: string, subjectName: string, professorName: string) => {
     if (!profile) return;
 
-    // Get professor's students only
     const { data: professorStudents } = await supabase
       .from('professor_students')
       .select('student_id')
@@ -123,7 +120,6 @@ const Courses = () => {
 
     const studentIds = professorStudents.map((ps) => ps.student_id);
 
-    // Get student details
     const { data: students } = await supabase
       .from('profiles')
       .select('id, email, full_name')
@@ -131,7 +127,6 @@ const Courses = () => {
 
     if (students && students.length > 0) {
       for (const student of students) {
-        // Create in-app notification
         await supabase.from('notifications').insert({
           user_id: student.id,
           title: 'Nouveau cours disponible',
@@ -140,7 +135,6 @@ const Courses = () => {
           data: { courseTitle, subjectName, professorName },
         });
 
-        // Send email notification
         try {
           await supabase.functions.invoke('send-notification', {
             body: {
@@ -149,8 +143,8 @@ const Courses = () => {
               type: 'new_course',
               data: {
                 courseName: courseTitle,
-                subjectName: subjectName,
-                professorName: professorName,
+                subjectName,
+                professorName,
               },
             },
           });
@@ -181,7 +175,7 @@ const Courses = () => {
       file_url: formData.file_url || null,
     };
 
-    const selectedSubject = subjects.find(s => s.id === formData.subject_id);
+    const selectedSubject = subjects.find((s) => s.id === formData.subject_id);
 
     if (editingCourse) {
       const { error } = await supabase
@@ -206,14 +200,9 @@ const Courses = () => {
         toast({ variant: 'destructive', title: 'Erreur', description: error.message });
       } else {
         toast({ title: 'Cours créé', description: 'Le nouveau cours a été ajouté.' });
-        
-        // Send notification to students
-        await sendNewCourseNotification(
-          formData.title,
-          selectedSubject?.name || '',
-          profile.full_name
-        );
-        
+
+        await sendNewCourseNotification(formData.title, selectedSubject?.name || '', profile.full_name);
+
         fetchData();
         resetForm();
       }
@@ -257,22 +246,23 @@ const Courses = () => {
     return new Date(deadline) < new Date();
   };
 
-  const filteredCourses = courses.filter((course) => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
+  const filteredCourses = courses
+    .filter((course) => (activeSubject === 'all' ? true : course.subject_id === activeSubject))
+    .filter((course) => {
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase();
 
-    return [
-      course.title || '',
-      course.description || '',
-      course.subject?.name || '',
-      course.professor?.full_name || '',
-    ].some((field) => field.toLowerCase().includes(query));
-  });
+      return [
+        course.title || '',
+        course.description || '',
+        course.subject?.name || '',
+        course.professor?.full_name || '',
+      ].some((field) => field.toLowerCase().includes(query));
+    });
 
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="animate-slide-up">
             <div className="flex items-center gap-4 mb-2">
@@ -284,7 +274,9 @@ const Courses = () => {
                 <p className="text-muted-foreground">
                   {subjectFilter
                     ? `Cours de ${subjects.find((s) => s.id === subjectFilter)?.name || 'la matière'}`
-                    : isProfessor ? 'Vos cours' : 'Cours de votre professeur'}
+                    : isProfessor
+                      ? 'Vos cours'
+                      : 'Cours de votre professeur'}
                 </p>
               </div>
             </div>
@@ -346,7 +338,7 @@ const Courses = () => {
                       </Select>
                       {subjects.length === 0 && (
                         <p className="text-xs text-muted-foreground">
-                          Créez d'abord une matière dans la section Matières
+                          Créez d&apos;abord une matière dans la section Matières
                         </p>
                       )}
                     </div>
@@ -419,18 +411,46 @@ const Courses = () => {
           )}
         </div>
 
-        {/* Search bar */}
-        <div className="relative w-full sm:w-96">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-          <Input
-            placeholder="Rechercher un cours..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background"
-          />
+        <div className="sticky top-4 z-20 space-y-3">
+          <div className="relative w-full sm:w-96">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+            <Input
+              placeholder="Rechercher un cours..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-12 h-12 rounded-xl border-border/50 bg-muted/30 focus:bg-background"
+            />
+          </div>
+          <div className="flex items-center gap-2 overflow-x-auto pb-1">
+            <Button
+              variant={activeSubject === 'all' ? 'secondary' : 'outline'}
+              size="sm"
+              className="rounded-full px-4"
+              onClick={() => setActiveSubject('all')}
+            >
+              Toutes
+            </Button>
+            {subjects.map((subject) => (
+              <Button
+                key={subject.id}
+                variant={activeSubject === subject.id ? 'secondary' : 'outline'}
+                size="sm"
+                className="rounded-full px-4 flex items-center gap-2 border-0 shadow-sm"
+                style={{
+                  background: activeSubject === subject.id ? `${subject.color}22` : 'transparent',
+                }}
+                onClick={() => setActiveSubject(subject.id)}
+              >
+                <span
+                  className="w-3 h-3 rounded-full"
+                  style={{ backgroundColor: subject.color }}
+                />
+                {subject.name}
+              </Button>
+            ))}
+          </div>
         </div>
 
-        {/* Courses grid */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16">
             <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
@@ -438,18 +458,19 @@ const Courses = () => {
           </div>
         ) : courses.length === 0 ? (
           <Card className="border-0 shadow-lg">
-            <CardContent className="flex flex-col items-center justify-center py-20">
-              <div className="w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center mb-6">
+            <CardContent className="flex flex-col items-center justify-center py-20 relative overflow-hidden">
+              <div className="absolute inset-0 opacity-60 bg-gradient-to-br from-primary/10 via-accent/10 to-transparent" />
+              <div className="relative w-24 h-24 rounded-3xl bg-primary/10 flex items-center justify-center mb-6 shadow-glow">
                 <BookOpen className="w-12 h-12 text-primary" />
               </div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">Aucun cours</h3>
-              <p className="text-muted-foreground text-center max-w-md">
-                {isProfessor 
-                  ? 'Créez votre premier cours pour commencer à enseigner.' 
+              <h3 className="relative text-xl font-semibold text-foreground mb-2">Aucun cours</h3>
+              <p className="relative text-muted-foreground text-center max-w-md">
+                {isProfessor
+                  ? 'Créez votre premier cours pour commencer à enseigner.'
                   : "Votre professeur n'a pas encore publié de cours."}
               </p>
               {isProfessor && subjects.length === 0 && (
-                <Link to="/subjects">
+                <Link to="/subjects" className="relative">
                   <Button variant="outline" className="mt-4 rounded-xl">
                     Créer une matière d'abord
                   </Button>
@@ -472,26 +493,30 @@ const Courses = () => {
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {filteredCourses.map((course, index) => (
-              <Card 
-                key={course.id} 
+              <Card
+                key={course.id}
                 className="border-0 shadow-lg card-hover group animate-slide-up overflow-hidden"
-                style={{ animationDelay: `${index * 50}ms` }}
+                style={{
+                  animationDelay: `${index * 50}ms`,
+                  background: course.subject?.color
+                    ? `linear-gradient(145deg, ${course.subject.color}10 0%, ${course.subject.color}05 100%)`
+                    : undefined,
+                }}
               >
-                {/* Colored header */}
-                <div 
+                <div
                   className="h-3 w-full"
                   style={{ backgroundColor: course.subject?.color || 'hsl(var(--primary))' }}
                 />
-                
+
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <Badge
                       variant="secondary"
                       className="text-xs font-semibold px-3 py-1"
                       style={{
-                        backgroundColor: `${course.subject?.color}15`,
-                        color: course.subject?.color,
-                        borderColor: `${course.subject?.color}30`,
+                        backgroundColor: `${course.subject?.color || 'hsl(var(--primary))'}15`,
+                        color: course.subject?.color || 'hsl(var(--primary))',
+                        borderColor: `${course.subject?.color || 'hsl(var(--primary))'}30`,
                       }}
                     >
                       {course.subject?.name}
@@ -534,7 +559,7 @@ const Courses = () => {
                         <span className="text-muted-foreground">{course.professor.full_name}</span>
                       </div>
                     )}
-                    
+
                     {course.file_url && (
                       <div className="flex items-center gap-2 text-sm">
                         <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
@@ -543,19 +568,19 @@ const Courses = () => {
                         <span className="text-muted-foreground">Fichier joint</span>
                       </div>
                     )}
-                    
+
                     {course.deadline && (
                       <div className="flex items-center gap-2 text-sm">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                          isDeadlinePassed(course.deadline) 
-                            ? 'bg-destructive/10' 
-                            : 'bg-warning/10'
-                        }`}>
-                          <Clock className={`w-4 h-4 ${
-                            isDeadlinePassed(course.deadline)
-                              ? 'text-destructive'
-                              : 'text-warning'
-                          }`} />
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                            isDeadlinePassed(course.deadline) ? 'bg-destructive/10' : 'bg-warning/10'
+                          }`}
+                        >
+                          <Clock
+                            className={`w-4 h-4 ${
+                              isDeadlinePassed(course.deadline) ? 'text-destructive' : 'text-warning'
+                            }`}
+                          />
                         </div>
                         <span className={isDeadlinePassed(course.deadline) ? 'text-destructive' : 'text-muted-foreground'}>
                           {format(new Date(course.deadline), 'dd MMMM yyyy', { locale: fr })}

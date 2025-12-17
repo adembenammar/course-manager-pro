@@ -23,7 +23,6 @@ import {
   Menu,
   X,
   BarChart3,
-  MessageSquare,
   CalendarDays,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -31,6 +30,7 @@ import NotificationBell from '@/components/NotificationBell';
 import GlobalSearch from '@/components/GlobalSearch';
 import ThemeToggle from '../ThemeToggle';
 import LanguageSwitcher from '../LanguageSwitcher';
+import { useTranslation } from '@/hooks/useTranslation';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -41,6 +41,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
+  const [dyslexicFont, setDyslexicFont] = useState(false);
+  const { t } = useTranslation();
 
   const handleSignOut = async () => {
     await signOut();
@@ -48,17 +51,16 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   };
 
   const navigation = [
-    { name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard },
-    { name: 'Agenda', href: '/agenda', icon: CalendarDays },
-    { name: 'Flux & messages', href: '/messages', icon: MessageSquare },
-    { name: 'Cours', href: '/courses', icon: BookOpen },
-    { name: 'Soumissions', href: '/submissions', icon: FileText },
-    { name: 'Matières', href: '/subjects', icon: FolderOpen },
-    { name: 'Analytiques', href: '/analytics', icon: BarChart3 },
+    { name: t('Tableau de bord', 'Dashboard'), href: '/dashboard', icon: LayoutDashboard },
+    { name: t('Agenda', 'Agenda'), href: '/agenda', icon: CalendarDays },
+    { name: t('Cours', 'Courses'), href: '/courses', icon: BookOpen },
+    { name: t('Soumissions', 'Submissions'), href: '/submissions', icon: FileText },
+    { name: t('Matieres', 'Subjects'), href: '/subjects', icon: FolderOpen },
+    { name: t('Analytiques', 'Analytics'), href: '/analytics', icon: BarChart3 },
   ];
 
   if (profile?.role === 'professor' || profile?.role === 'admin') {
-    navigation.push({ name: 'Étudiants', href: '/students', icon: Users });
+    navigation.push({ name: t('Etudiants', 'Students'), href: '/students', icon: Users });
   }
 
   const getInitials = (name: string) => {
@@ -71,7 +73,11 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted/40">
+    <div className={`min-h-screen bg-gradient-to-br from-background via-background to-muted/40 relative overflow-hidden ${dyslexicFont ? 'font-[\"AtkinsonHyperlegible\",sans-serif] tracking-[0.01em]' : ''}`}>
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="bg-aurora h-full w-full opacity-70" />
+        <div className="bg-dot-grid absolute inset-0 opacity-30" />
+      </div>
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -96,7 +102,9 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               </div>
               <div className="flex flex-col">
                 <span className="text-lg font-bold text-sidebar-foreground">EduPlatform</span>
-                <span className="text-xs text-muted-foreground">Étudiants & enseignants</span>
+                <span className="text-xs text-muted-foreground">
+                  {t('Etudiants & enseignants', 'Students & instructors')}
+                </span>
               </div>
             </Link>
             <Button
@@ -111,7 +119,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
 
           {/* Navigation */}
           <nav className="flex-1 space-y-4 px-4 py-6 overflow-y-auto">
-            <p className="section-title px-2">Navigation</p>
+            <p className="section-title px-2">{t('Navigation', 'Navigation')}</p>
             {navigation.map((item) => {
               const isActive = location.pathname === item.href;
               return (
@@ -122,11 +130,18 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                   className={cn(
                     'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
                     isActive
-                      ? 'bg-primary/10 text-foreground border border-primary/30 shadow-sm'
-                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+                      ? 'bg-gradient-to-r from-primary/15 via-primary/10 to-accent/15 text-foreground border border-primary/30 shadow-glow'
+                      : 'text-muted-foreground hover:bg-secondary hover:text-foreground border border-transparent hover:border-border'
                   )}
                 >
-                  <item.icon className="h-5 w-5" />
+                  <span
+                    className={cn(
+                      'h-9 w-9 rounded-xl flex items-center justify-center transition-all',
+                      isActive ? 'bg-primary/15 text-primary shadow-glow' : 'bg-secondary/60 text-muted-foreground'
+                    )}
+                  >
+                    <item.icon className="h-5 w-5" />
+                  </span>
                   {item.name}
                 </Link>
               );
@@ -140,7 +155,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-secondary transition-colors"
             >
               <Settings className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm text-foreground">Paramètres</span>
+              <span className="text-sm text-foreground">{t('Parametres', 'Settings')}</span>
             </Link>
             <div className="flex items-center gap-3 px-2">
               <Avatar className="h-10 w-10">
@@ -151,13 +166,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-semibold text-foreground truncate">
-                  {profile?.full_name || 'Utilisateur'}
+                  {profile?.full_name || t('Utilisateur', 'User')}
                 </p>
                 <p className="text-xs text-muted-foreground capitalize">
                   {profile?.role === 'student'
-                    ? 'Étudiant'
+                    ? t('Etudiant', 'Student')
                     : profile?.role === 'professor'
-                      ? 'Professeur'
+                      ? t('Professeur', 'Professor')
                       : 'Admin'}
                 </p>
               </div>
@@ -185,15 +200,21 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
             </div>
             <div className="flex items-center gap-2">
               <Button asChild variant="outline" size="sm" className="rounded-full hidden sm:inline-flex">
-                <Link to="/courses">Cours</Link>
+                <Link to="/courses">{t('Cours', 'Courses')}</Link>
               </Button>
               <Button asChild size="sm" className="rounded-full gradient-primary shadow-glow">
-                <Link to="/submissions">Soumissions</Link>
+                <Link to="/submissions">{t('Soumissions', 'Submissions')}</Link>
               </Button>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" className="rounded-full hidden sm:inline-flex" onClick={() => setFocusMode((p) => !p)}>
+              {focusMode ? t('Quitter focus', 'Exit focus') : t('Mode focus', 'Focus mode')}
+            </Button>
+            <Button variant="outline" size="sm" className="rounded-full hidden sm:inline-flex" onClick={() => setDyslexicFont((p) => !p)}>
+              {dyslexicFont ? t('Police normale', 'Standard font') : t('Police dyslexie', 'Dyslexia-friendly')}
+            </Button>
             <LanguageSwitcher />
             <ThemeToggle />
             <NotificationBell />
@@ -208,6 +229,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
                     {profile?.full_name ? getInitials(profile.full_name) : 'U'}
                   </AvatarFallback>
                 </Avatar>
+                <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-green-500 ring-2 ring-card animate-pulse" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -221,13 +243,13 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
               <Link to="/settings">
                 <DropdownMenuItem>
                   <Settings className="mr-2 h-4 w-4" />
-                  Paramètres
+                  {t('Parametres', 'Settings')}
                 </DropdownMenuItem>
               </Link>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
                 <LogOut className="mr-2 h-4 w-4" />
-                Déconnexion
+                {t('Deconnexion', 'Sign out')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

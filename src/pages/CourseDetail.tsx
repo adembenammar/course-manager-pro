@@ -25,7 +25,7 @@ import {
   Download,
   Paperclip,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays, differenceInCalendarDays } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
 const CourseDetail = () => {
@@ -44,6 +44,13 @@ const CourseDetail = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isStudent = profile?.role === 'student';
+  const deadlineDate = course?.deadline ? new Date(course.deadline) : null;
+  const submittedAt = submission?.submitted_at
+    ? new Date(submission.submitted_at)
+    : submission?.created_at
+      ? new Date(submission.created_at)
+      : null;
+  const submissionLate = deadlineDate && submittedAt ? submittedAt > deadlineDate : false;
 
   const fetchData = async () => {
     if (!id) return;
@@ -168,6 +175,50 @@ const CourseDetail = () => {
       .slice(0, 2);
   };
 
+  const timeline = (() => {
+    const steps = [];
+    const deadline = course?.deadline ? new Date(course.deadline) : null;
+    const today = new Date();
+
+    steps.push({
+      label: 'Brief & ressources',
+      dateLabel: format(today, 'dd MMM', { locale: fr }),
+      status: 'done' as const,
+      color: 'text-success',
+    });
+
+    if (deadline) {
+      const reviewDate = addDays(deadline, -2);
+      steps.push({
+        label: 'Rappel aux étudiants',
+        dateLabel: format(reviewDate, 'dd MMM', { locale: fr }),
+        status: differenceInCalendarDays(reviewDate, today) < 0 ? 'done' : 'todo',
+        color: 'text-warning',
+      });
+      steps.push({
+        label: 'Deadline',
+        dateLabel: format(deadline, 'dd MMM', { locale: fr }),
+        status: deadline < today ? 'done' : 'todo',
+        color: deadline < today ? 'text-destructive' : 'text-primary',
+      });
+      steps.push({
+        label: 'Correction & feedback',
+        dateLabel: deadline < today ? format(addDays(deadline, 2), 'dd MMM', { locale: fr }) : 'À venir',
+        status: deadline < today ? 'in-progress' : 'todo',
+        color: 'text-accent',
+      });
+    } else {
+      steps.push({
+        label: 'Planifier une deadline',
+        dateLabel: 'À définir',
+        status: 'todo' as const,
+        color: 'text-muted-foreground',
+      });
+    }
+
+    return steps;
+  })();
+
   if (loading) {
     return (
       <DashboardLayout>
@@ -246,6 +297,42 @@ const CourseDetail = () => {
           </CardHeader>
 
           <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div className="p-3 rounded-xl border border-border/60 bg-card/70 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Calendar className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Échéance</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {course.deadline
+                      ? format(new Date(course.deadline), 'dd MMM yyyy', { locale: fr })
+                      : 'Aucune'}
+                  </p>
+                </div>
+              </div>
+              <div className="p-3 rounded-xl border border-border/60 bg-card/70 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Ressources</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    {course.file_url ? '1 pièce jointe' : 'Aucune'}
+                  </p>
+                </div>
+              </div>
+              <div className="p-3 rounded-xl border border-border/60 bg-card/70 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
+                  <CheckCircle className="w-5 h-5 text-success" />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.08em] text-muted-foreground">Progression</p>
+                  <p className="text-sm font-semibold text-foreground">En cours</p>
+                </div>
+              </div>
+            </div>
+
             {course.file_url && (
               <div className="p-4 rounded-xl bg-primary/5 border border-primary/10">
                 <div className="flex items-center justify-between">
@@ -284,13 +371,40 @@ const CourseDetail = () => {
         {isStudent && (
           <Card className="border-0 shadow-md glass animate-slide-up" style={{ animationDelay: '100ms' }}>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileText className="w-5 h-5 text-primary" />
-                Soumission de travail
-              </CardTitle>
-              <CardDescription>
-                Soumettez votre travail pour ce cours
-              </CardDescription>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5 text-primary" />
+                    Soumission de travail
+                  </CardTitle>
+                  <CardDescription>
+                    Soumettez votre travail pour ce cours
+                  </CardDescription>
+                </div>
+                {submission?.status && (
+                  <Badge
+                    className={
+                      submission.status === 'graded'
+                        ? 'bg-success/10 text-success border-success/20'
+                        : submission.status === 'submitted'
+                          ? 'bg-warning/10 text-warning border-warning/20'
+                          : submissionLate
+                            ? 'bg-destructive/10 text-destructive border-destructive/30'
+                            : 'bg-accent/10 text-accent border-accent/30'
+                    }
+                  >
+                    {submission.status === 'graded'
+                      ? 'Corrigé'
+                      : submission.status === 'submitted'
+                        ? submissionLate
+                          ? 'Soumis en retard'
+                          : 'Soumis - en attente'
+                        : submissionLate
+                          ? 'En retard'
+                          : 'À rendre'}
+                  </Badge>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {submission?.status === 'graded' && (

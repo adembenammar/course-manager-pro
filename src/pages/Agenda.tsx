@@ -25,6 +25,7 @@ const Agenda = () => {
   const { toast } = useToast();
   const [events, setEvents] = useState<AgendaEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [scope, setScope] = useState<'mine' | 'all'>('mine');
 
   const isProfessor = profile?.role === "professor" || profile?.role === "admin";
 
@@ -146,17 +147,37 @@ const Agenda = () => {
   }, [profile, isProfessor, toast]);
 
   // Upcoming events (next 30 days)
+  const sharedEvents = useMemo<AgendaEvent[]>(
+    () => [
+      {
+        id: "all-campus-meeting",
+        title: "Réunion parents-profs",
+        date: addDays(new Date(), 14).toISOString(),
+        type: "deadline",
+        subject: "Campus",
+        color: "#6366F1",
+        meta: "Evénement établissement",
+      },
+    ],
+    []
+  );
+
+  const scopedEvents = useMemo(
+    () => (scope === "all" ? [...events, ...sharedEvents] : events),
+    [events, scope, sharedEvents]
+  );
+
   const upcoming = useMemo(() => {
     const now = new Date();
     const limit = addDays(now, 30);
-    return events
+    return scopedEvents
       .filter((ev) => {
         const date = new Date(ev.date);
         return isAfter(date, now) && isBefore(date, limit);
       })
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .slice(0, 8);
-  }, [events]);
+  }, [scopedEvents]);
 
   // Reminders for soon deadlines (within 48h)
   useEffect(() => {
@@ -167,7 +188,7 @@ const Agenda = () => {
       JSON.parse(localStorage.getItem(`agenda:reminders:${profile.id}`) || "[]")
     );
 
-    const soonEvents = events.filter((ev) => {
+    const soonEvents = scopedEvents.filter((ev) => {
       const d = new Date(ev.date);
       return isAfter(d, now) && isBefore(d, soon);
     });
@@ -188,7 +209,7 @@ const Agenda = () => {
       const updated = Array.from(new Set([...alreadyNotified, ...shown]));
       localStorage.setItem(`agenda:reminders:${profile.id}`, JSON.stringify(updated));
     }
-  }, [events, toast, profile]);
+  }, [scopedEvents, toast, profile]);
 
   const monthDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(new Date()), { weekStartsOn: 1 });
@@ -196,7 +217,40 @@ const Agenda = () => {
     return eachDayOfInterval({ start, end });
   }, []);
 
-  const dayEvents = (day: Date) => events.filter((ev) => isSameDay(new Date(ev.date), day));
+  const dayEvents = (day: Date) => scopedEvents.filter((ev) => isSameDay(new Date(ev.date), day));
+
+  const exportIcs = () => {
+    const serializeDate = (date: Date) => date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+    const lines = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//CourseManager//Agenda//FR",
+    ];
+    scopedEvents.forEach((ev) => {
+      const start = serializeDate(new Date(ev.date));
+      const end = serializeDate(addDays(new Date(ev.date), 1));
+      lines.push(
+        "BEGIN:VEVENT",
+        `UID:${ev.id}`,
+        `DTSTAMP:${start}`,
+        `DTSTART:${start}`,
+        `DTEND:${end}`,
+        `SUMMARY:${ev.title}`,
+        ev.meta ? `DESCRIPTION:${ev.meta}` : "",
+        ev.subject ? `CATEGORIES:${ev.subject}` : "",
+        "END:VEVENT"
+      );
+    });
+    lines.push("END:VCALENDAR");
+
+    const blob = new Blob([lines.filter(Boolean).join("\r\n")], { type: "text/calendar;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "agenda-course-manager.ics";
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <DashboardLayout>
@@ -204,18 +258,38 @@ const Agenda = () => {
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <p className="section-title">Agenda</p>
-            <h1 className="text-3xl font-bold text-foreground">Calendrier & Échéancier</h1>
+            <h1 className="text-3xl font-bold text-foreground">Calendrier & echeancier</h1>
             <p className="text-muted-foreground">
-              Deadlines des cours et tâches à traiter automatiquement regroupées.
+              Deadlines des cours et taches a traiter automatiquement regroupees.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap justify-end">
             <Badge variant="secondary" className="rounded-full px-3 py-1">
-              {isProfessor ? "Professeur" : "Étudiant"}
+              {isProfessor ? "Professeur" : "Etudiant"}
             </Badge>
+            <div className="flex items-center rounded-full border border-border/60 overflow-hidden">
+              <Button
+                size="sm"
+                variant={scope === "mine" ? "secondary" : "ghost"}
+                className="rounded-none"
+                onClick={() => setScope("mine")}
+              >
+                Ma classe
+              </Button>
+              <Button
+                size="sm"
+                variant={scope === "all" ? "secondary" : "ghost"}
+                className="rounded-none border-l border-border/60"
+                onClick={() => setScope("all")}
+              >
+                Tous
+              </Button>
+            </div>
+            <Button variant="outline" size="sm" className="rounded-full" onClick={exportIcs}>
+              Exporter .ics
+            </Button>
           </div>
         </div>
-
         <div className="grid gap-6 lg:grid-cols-3">
           <Card className="lg:col-span-2 border-0 shadow-lg">
             <CardHeader className="flex flex-row items-center justify-between">
