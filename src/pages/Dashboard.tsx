@@ -4,6 +4,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import DashboardLayout from '@/components/layout/DashboardLayout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import {
   BookOpen,
@@ -75,6 +78,7 @@ const Dashboard = () => {
   const { profile } = useAuth();
   const { t, language } = useTranslation();
   const dateLocale = language === 'en' ? enUS : fr;
+  const checklistKey = profile?.id ? `onboarding-checklist-${profile.id}` : 'onboarding-checklist-guest';
   const [stats, setStats] = useState<Stats>({
     subjects: 0,
     courses: 0,
@@ -89,6 +93,7 @@ const Dashboard = () => {
   const [statusData, setStatusData] = useState<StatusData[]>([]);
   const [subjectStats, setSubjectStats] = useState<SubjectStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [onboardingProgress, setOnboardingProgress] = useState<Record<string, boolean>>({});
 
   const isProfessor = profile?.role === 'professor' || profile?.role === 'admin';
 
@@ -324,6 +329,71 @@ const Dashboard = () => {
         { title: t('Objectif', 'Goal'), value: '15/20', icon: Target, color: 'text-primary' },
       ];
 
+  const onboardingSteps = isProfessor
+    ? [
+        {
+          id: 'profile',
+          title: t('Completer mon profil', 'Complete my profile'),
+          description: t('Photo, bio, contact et specialites', 'Photo, bio, contact and specialties'),
+          link: '/settings',
+        },
+        {
+          id: 'course',
+          title: t('Creer un cours', 'Create a course'),
+          description: t('Ajouter un titre, une description et une deadline', 'Add a title, description, and deadline'),
+          link: '/courses',
+        },
+        {
+          id: 'invite',
+          title: t('Inviter des etudiants', 'Invite students'),
+          description: t('Partager le cours ou inviter par email', 'Share the course or invite by email'),
+          link: '/students',
+        },
+      ]
+    : [
+        {
+          id: 'profile',
+          title: t('Completer mon profil', 'Complete my profile'),
+          description: t('Photo, bio et informations de contact', 'Photo, bio, and contact info'),
+          link: '/settings',
+        },
+        {
+          id: 'course',
+          title: t('Parcourir mes cours', 'Browse my courses'),
+          description: t('Verifier les contenus et les deadlines', 'Check content and deadlines'),
+          link: '/courses',
+        },
+        {
+          id: 'submission',
+          title: t('Faire une premiere soumission', 'Submit my first assignment'),
+          description: t('Envoyer un rendu test et consulter le feedback', 'Send a test submission and read feedback'),
+          link: '/submissions',
+        },
+      ];
+
+  useEffect(() => {
+    const stored = localStorage.getItem(checklistKey);
+    if (stored) {
+      setOnboardingProgress(JSON.parse(stored));
+    } else {
+      setOnboardingProgress({});
+    }
+  }, [checklistKey]);
+
+  useEffect(() => {
+    localStorage.setItem(checklistKey, JSON.stringify(onboardingProgress));
+  }, [onboardingProgress, checklistKey]);
+
+  const completedCount = onboardingSteps.filter((step) => onboardingProgress[step.id]).length;
+  const onboardingProgressValue = Math.round((completedCount / onboardingSteps.length) * 100);
+
+  const toggleStep = (id: string) => {
+    setOnboardingProgress((prev) => {
+      const updated = { ...prev, [id]: !prev[id] };
+      return updated;
+    });
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8 page-grid">
@@ -382,6 +452,59 @@ const Dashboard = () => {
             </div>
           </div>
         </div>
+
+        <Card className="surface animate-slide-up" style={{ animationDelay: '120ms' }}>
+          <CardHeader className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-success" />
+                <CardTitle>{t('Checklist de demarrage', 'Getting started checklist')}</CardTitle>
+              </div>
+              <Badge variant="secondary" className="text-xs">
+                {completedCount}/{onboardingSteps.length} {t('termine', 'done')}
+              </Badge>
+            </div>
+            <CardDescription>{t('Validez les 3 etapes pour prendre en main la plateforme.', 'Complete the three steps to get comfortable with the platform.')}</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Progress value={onboardingProgressValue} className="h-3" />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{t('Progression', 'Progress')}</span>
+                <span className="font-semibold text-foreground">{onboardingProgressValue}%</span>
+              </div>
+            </div>
+            <div className="space-y-3">
+              {onboardingSteps.map((step) => (
+                <label
+                  key={step.id}
+                  className="flex items-start gap-3 rounded-xl border border-border/60 bg-card/70 px-3 py-3 hover:border-primary/50 transition-colors cursor-pointer"
+                >
+                  <Checkbox
+                    checked={!!onboardingProgress[step.id]}
+                    onCheckedChange={() => toggleStep(step.id)}
+                    aria-label={step.title}
+                  />
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-sm text-foreground line-clamp-1">{step.title}</p>
+                      {onboardingProgress[step.id] && (
+                        <Badge variant="outline" className="text-[11px]">
+                          {t('Fait', 'Done')}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{step.description}</p>
+                    <Link to={step.link} className="text-xs text-primary hover:underline inline-flex items-center gap-1">
+                      {t('Ouvrir', 'Open')}
+                      <ArrowRight className="w-3 h-3" />
+                    </Link>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Actions rapides */}
         <div className="grid sm:grid-cols-3 gap-3">

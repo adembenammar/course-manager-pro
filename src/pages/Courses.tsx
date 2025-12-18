@@ -25,6 +25,7 @@ import FileUpload from '@/components/FileUpload';
 import { Plus, BookOpen, Edit2, Trash2, Calendar, Loader2, Eye, FileText, Download, Clock, User, Search } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const Courses = () => {
   const { profile, session } = useAuth();
@@ -452,9 +453,34 @@ const Courses = () => {
         </div>
 
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-16">
-            <Loader2 className="w-10 h-10 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground">Chargement des cours...</p>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {[...Array(6)].map((_, i) => (
+              <Card key={i} className="border-0 shadow-lg overflow-hidden">
+                <Skeleton className="h-3 w-full" />
+                <CardHeader className="pb-3 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <Skeleton className="h-6 w-24 rounded-full" />
+                    <div className="flex gap-2">
+                      <Skeleton className="h-8 w-8 rounded-lg" />
+                      <Skeleton className="h-8 w-8 rounded-lg" />
+                    </div>
+                  </div>
+                  <Skeleton className="h-5 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-8 w-8 rounded-lg" />
+                    <Skeleton className="h-4 w-32" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-8 w-8 rounded-lg" />
+                    <Skeleton className="h-4 w-24" />
+                  </div>
+                  <Skeleton className="h-10 w-full rounded-xl" />
+                </CardContent>
+              </Card>
+            ))}
           </div>
         ) : courses.length === 0 ? (
           <Card className="border-0 shadow-lg">

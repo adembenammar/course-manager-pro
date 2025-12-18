@@ -18,9 +18,11 @@ const GlobalSearch = () => {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [recentQueries, setRecentQueries] = useState<string[]>([]);
   const { profile } = useAuth();
   const navigate = useNavigate();
   const searchRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const isProfessor = profile?.role === 'professor' || profile?.role === 'admin';
 
@@ -33,6 +35,25 @@ const GlobalSearch = () => {
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const stored = localStorage.getItem('global-search-recent');
+    if (stored) {
+      setRecentQueries(JSON.parse(stored));
+    }
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === '/' && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        inputRef.current?.focus();
+        setIsOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   useEffect(() => {
@@ -121,6 +142,13 @@ const GlobalSearch = () => {
   }, [query, isProfessor, profile]);
 
   const handleResultClick = (result: SearchResult) => {
+    if (result.title) {
+      setRecentQueries((prev) => {
+        const next = [result.title, ...prev.filter((q) => q !== result.title)].slice(0, 5);
+        localStorage.setItem('global-search-recent', JSON.stringify(next));
+        return next;
+      });
+    }
     switch (result.type) {
       case 'course':
         navigate(`/courses/${result.id}`);
@@ -154,13 +182,22 @@ const GlobalSearch = () => {
       <div className="relative">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
         <Input
-          placeholder="Rechercher cours, matières..."
+          placeholder="Rechercher cours, matieres..."
           value={query}
           onChange={(e) => {
             setQuery(e.target.value);
             setIsOpen(true);
           }}
           onFocus={() => setIsOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && results[0]) {
+              handleResultClick(results[0]);
+            }
+            if (e.key === 'Escape') {
+              setIsOpen(false);
+            }
+          }}
+          ref={inputRef}
           className="pl-12 pr-10 h-11 rounded-xl border-border/50 bg-muted/30 focus:bg-background transition-all"
         />
         {query && (
@@ -176,15 +213,42 @@ const GlobalSearch = () => {
         )}
       </div>
 
-      {isOpen && (query.trim().length >= 2 || loading) && (
+      {isOpen && (query.trim().length >= 2 || loading || recentQueries.length > 0) && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-xl shadow-xl z-50 overflow-hidden">
-          {loading ? (
+          {query.trim().length < 2 && recentQueries.length > 0 && !loading ? (
+            <div className="py-3 px-4 space-y-2 text-sm text-muted-foreground">
+              <p className="font-medium text-foreground">Raccourcis</p>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="px-2 py-1 rounded bg-muted text-foreground font-semibold">/</span>
+                pour ouvrir la recherche ·
+                <span className="px-2 py-1 rounded bg-muted text-foreground font-semibold">Entree</span>
+                pour valider le premier resultat
+              </div>
+              <div className="pt-2">
+                <p className="text-xs uppercase tracking-wide text-muted-foreground/80">Recherches recentes</p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {recentQueries.map((item) => (
+                    <button
+                      key={item}
+                      onClick={() => {
+                        setQuery(item);
+                        setIsOpen(true);
+                      }}
+                      className="px-3 py-1 rounded-full bg-muted text-foreground hover:bg-muted/80 transition-colors text-xs"
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : loading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-5 h-5 animate-spin text-primary" />
             </div>
           ) : results.length === 0 ? (
             <div className="py-8 text-center text-muted-foreground">
-              Aucun résultat pour "{query}"
+              Aucun resultat pour "{query}"
             </div>
           ) : (
             <div className="py-2">
@@ -214,7 +278,7 @@ const GlobalSearch = () => {
                       )}
                     </div>
                     <span className="text-xs text-muted-foreground capitalize bg-muted px-2 py-1 rounded-md">
-                      {result.type === 'course' ? 'Cours' : result.type === 'subject' ? 'Matière' : 'Étudiant'}
+                      {result.type === 'course' ? 'Cours' : result.type === 'subject' ? 'Matiere' : 'Etudiant'}
                     </span>
                   </button>
                 );
